@@ -6,38 +6,8 @@ description: >
   creation, project board updates, CI monitoring, comment triage, and merge.
   Enforces the strict cm development workflow across all 5 Go repos with
   mandatory safety gates at every irreversible step.
-triggers:
-  - "create pr"
-  - "submit pr"
-  - "pr workflow"
-  - "push and pr"
-  - "cm pr"
-  - "full pr cycle"
-  - "run pr workflow"
-  - "pr lifecycle"
-  - "submit changes"
-repos:
-  - name: config-manager-core
-    path: C:\Users\marius\repo\config-manager-core
-    owner: msutara
-  - name: cm-plugin-network
-    path: C:\Users\marius\repo\cm-plugin-network
-    owner: msutara
-  - name: cm-plugin-update
-    path: C:\Users\marius\repo\cm-plugin-update
-    owner: msutara
-  - name: config-manager-tui
-    path: C:\Users\marius\repo\config-manager-tui
-    owner: msutara
-  - name: config-manager-web
-    path: C:\Users\marius\repo\config-manager-web
-    owner: msutara
-github_project:
-  id: PVT_kwHOAgHix84BPSxN
-  status_field_id: PVTSSF_lAHOAgHix84BPSxNzg9vkrk
-  in_progress_option: 47fc9ee4
-  review_option: e70217cf
-  done_option: "98236657"
+  USE FOR: create pr, submit pr, pr workflow, push and pr, cm pr, full pr cycle,
+  run pr workflow, pr lifecycle, submit changes.
 ---
 
 # CM PR Lifecycle
@@ -47,6 +17,28 @@ change through the full validation pipeline — build, test, lint, fleet review,
 fix loop, staged diff approval, commit, push, PR creation, project board update,
 CI monitoring, comment resolution, and merge — with mandatory user approval gates
 before every irreversible action.
+
+## Project Context
+
+### Repos
+
+| # | Repo | Path | Owner |
+| --- | --- | --- | --- |
+| 1 | config-manager-core | `C:\Users\marius\repo\config-manager-core` | msutara |
+| 2 | cm-plugin-network | `C:\Users\marius\repo\cm-plugin-network` | msutara |
+| 3 | cm-plugin-update | `C:\Users\marius\repo\cm-plugin-update` | msutara |
+| 4 | config-manager-tui | `C:\Users\marius\repo\config-manager-tui` | msutara |
+| 5 | config-manager-web | `C:\Users\marius\repo\config-manager-web` | msutara |
+
+### GitHub Project
+
+| Key | Value |
+| --- | --- |
+| Project ID | `PVT_kwHOAgHix84BPSxN` |
+| Status field ID | `PVTSSF_lAHOAgHix84BPSxNzg9vkrk` |
+| In-progress option | `47fc9ee4` |
+| Review option | `e70217cf` |
+| Done option | `98236657` |
 
 ---
 

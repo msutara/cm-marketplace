@@ -4,19 +4,8 @@ description: >
   Verify functional, security, test, and documentation parity between
   config-manager-tui (Bubble Tea terminal UI) and config-manager-web
   (htmx + Go templates web UI). Reports gaps without making changes.
-trigger_phrases:
-  - parity check
-  - check parity
-  - tui web sync
-  - compare tui web
-  - parity audit
-  - ui parity
-  - check ui parity
-  - verify parity
-  - parity report
-repos:
-  tui: C:\Users\marius\repo\config-manager-tui
-  web: C:\Users\marius\repo\config-manager-web
+  USE FOR: parity check, check parity, tui web sync, compare tui web,
+  parity audit, ui parity, check ui parity, verify parity, parity report.
 ---
 
 # TUI ↔ Web Parity Check

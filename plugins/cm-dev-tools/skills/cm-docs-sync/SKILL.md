@@ -5,16 +5,8 @@ description: >
   files for drift, validates copilot-instructions.md accuracy, cross-references
   specs with code, checks README freshness, and runs markdownlint. Generates a
   unified report and optionally auto-fixes mechanical divergences.
-triggers:
-  - "sync docs"
-  - "docs audit"
-  - "check documentation"
-  - "update docs"
-  - "docs consistency"
-  - "audit docs"
-  - "documentation check"
-  - "verify docs"
-  - "docs parity"
+  USE FOR: sync docs, docs audit, check documentation, update docs,
+  docs consistency, audit docs, documentation check, verify docs, docs parity.
 ---
 
 # CM Documentation Consistency Audit

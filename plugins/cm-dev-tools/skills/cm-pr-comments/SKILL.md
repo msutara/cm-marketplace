@@ -5,41 +5,34 @@ description: >
   repositories. Fetches open and closed threads, distinguishes human from bot
   feedback, assesses risk, presents a prioritized summary, and implements fixes
   with the full build → test → fleet-review cycle when required.
-triggers:
-  - check pr comments
-  - triage comments
-  - address review
-  - pr feedback
-  - resolve threads
-  - review comments
-  - pr comment triage
-  - handle comments
-  - fix pr comments
-repos:
-  - name: config-manager-core
-    path: C:\Users\marius\repo\config-manager-core
-    owner: msutara
-  - name: cm-plugin-network
-    path: C:\Users\marius\repo\cm-plugin-network
-    owner: msutara
-  - name: cm-plugin-update
-    path: C:\Users\marius\repo\cm-plugin-update
-    owner: msutara
-  - name: config-manager-tui
-    path: C:\Users\marius\repo\config-manager-tui
-    owner: msutara
-  - name: config-manager-web
-    path: C:\Users\marius\repo\config-manager-web
-    owner: msutara
-github_project:
-  id: PVT_kwHOAgHix84BPSxN
-  review_status_option: e70217cf
+  USE FOR: check pr comments, triage comments, address review, pr feedback,
+  resolve threads, review comments, pr comment triage, handle comments,
+  fix pr comments.
 ---
 
 # CM PR Comment Triage & Resolution
 
 Systematic workflow for triaging and resolving PR review comments across all
 Config Manager repositories.
+
+## Project Context
+
+### Repos
+
+| # | Repo | Path | Owner |
+| --- | --- | --- | --- |
+| 1 | config-manager-core | `C:\Users\marius\repo\config-manager-core` | msutara |
+| 2 | cm-plugin-network | `C:\Users\marius\repo\cm-plugin-network` | msutara |
+| 3 | cm-plugin-update | `C:\Users\marius\repo\cm-plugin-update` | msutara |
+| 4 | config-manager-tui | `C:\Users\marius\repo\config-manager-tui` | msutara |
+| 5 | config-manager-web | `C:\Users\marius\repo\config-manager-web` | msutara |
+
+### GitHub Project
+
+| Key | Value |
+| --- | --- |
+| Project ID | `PVT_kwHOAgHix84BPSxN` |
+| Review status option | `e70217cf` |
 
 ## Step 1 — Fetch PR Comments
 

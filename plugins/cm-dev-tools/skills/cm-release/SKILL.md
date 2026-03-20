@@ -5,54 +5,8 @@ description: >
   every repo (clean tree, build, test, lint), tags in dependency order, generates
   release notes from merged PRs, creates GitHub releases, verifies CI artifacts,
   and updates the project board. Supports semver strings and bump types.
-triggers:
-  - release
-  - tag repos
-  - create release
-  - bump version
-  - release all repos
-  - retag
-  - cm release
-  - new release
-  - publish release
-  - tag all
-  - version bump
-repos:
-  - name: config-manager-core
-    path: C:\Users\marius\repo\config-manager-core
-    owner: msutara
-    order: 1
-    role: central service
-  - name: cm-plugin-network
-    path: C:\Users\marius\repo\cm-plugin-network
-    owner: msutara
-    order: 2
-    role: network config plugin
-  - name: cm-plugin-update
-    path: C:\Users\marius\repo\cm-plugin-update
-    owner: msutara
-    order: 3
-    role: OS update plugin
-  - name: config-manager-tui
-    path: C:\Users\marius\repo\config-manager-tui
-    owner: msutara
-    order: 4
-    role: Bubble Tea TUI
-  - name: config-manager-web
-    path: C:\Users\marius\repo\config-manager-web
-    owner: msutara
-    order: 5
-    role: htmx web UI
-github_project:
-  id: PVT_kwHOAgHix84BPSxN
-  status_field_id: PVTSSF_lAHOAgHix84BPSxNzg9vkrk
-  done_option: "98236657"
-dependency_order:
-  - config-manager-core
-  - cm-plugin-network
-  - cm-plugin-update
-  - config-manager-tui
-  - config-manager-web
+  USE FOR: release, tag repos, create release, bump version, release all repos,
+  retag, cm release, new release, publish release, tag all, version bump.
 ---
 
 # CM Cross-Repo Release Workflow
@@ -60,6 +14,30 @@ dependency_order:
 Orchestrate a synchronized release across all 5 Config Manager repositories.
 Tags are applied in strict dependency order so that downstream `go.mod` references
 always resolve to published versions.
+
+## Project Context
+
+### Repos (in dependency order)
+
+| Order | Repo | Path | Owner | Role |
+| --- | --- | --- | --- | --- |
+| 1 | config-manager-core | `C:\Users\marius\repo\config-manager-core` | msutara | central service |
+| 2 | cm-plugin-network | `C:\Users\marius\repo\cm-plugin-network` | msutara | network config plugin |
+| 3 | cm-plugin-update | `C:\Users\marius\repo\cm-plugin-update` | msutara | OS update plugin |
+| 4 | config-manager-tui | `C:\Users\marius\repo\config-manager-tui` | msutara | Bubble Tea TUI |
+| 5 | config-manager-web | `C:\Users\marius\repo\config-manager-web` | msutara | htmx web UI |
+
+### Dependency Order
+
+Tags must be applied in this order: config-manager-core → cm-plugin-network → cm-plugin-update → config-manager-tui → config-manager-web.
+
+### GitHub Project
+
+| Key | Value |
+| --- | --- |
+| Project ID | `PVT_kwHOAgHix84BPSxN` |
+| Status field ID | `PVTSSF_lAHOAgHix84BPSxNzg9vkrk` |
+| Done option | `98236657` |
 
 ## Input
 

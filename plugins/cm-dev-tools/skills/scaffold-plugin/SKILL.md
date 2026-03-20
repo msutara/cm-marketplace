@@ -5,21 +5,8 @@ description: >
   CI workflows, specs, docs, issue templates, and core wiring. Scaffolds the plugin
   struct implementing plugin.Plugin (and optionally plugin.Configurable), service
   layer, Chi routes, httptest-based tests, and an initial PR on phase1/skeleton-and-specs.
-triggers:
-  - "create plugin"
-  - "new plugin"
-  - "scaffold plugin"
-  - "add plugin repo"
-  - "new cm plugin"
-  - "plugin skeleton"
-  - "create cm plugin"
-  - "bootstrap plugin"
-repos:
-  - name: config-manager-core
-    path: C:\Users\marius\repo\config-manager-core
-    owner: msutara
-github_project:
-  id: PVT_kwHOAgHix84BPSxN
+  USE FOR: create plugin, new plugin, scaffold plugin, add plugin repo, new cm plugin,
+  plugin skeleton, create cm plugin, bootstrap plugin.
 ---
 
 # Scaffold CM Plugin
@@ -27,6 +14,13 @@ github_project:
 One-shot creation of a fully wired Config Manager plugin repository. After this
 skill completes you will have a public GitHub repo, passing CI, an initial PR,
 and the plugin registered in the core binary.
+
+## Project Context
+
+| Key | Value |
+| --- | --- |
+| Reference repo | `config-manager-core` (`C:\Users\marius\repo\config-manager-core`, owner: msutara) |
+| GitHub Project ID | `PVT_kwHOAgHix84BPSxN` |
 
 ## Step 0 — Gather Input
 
