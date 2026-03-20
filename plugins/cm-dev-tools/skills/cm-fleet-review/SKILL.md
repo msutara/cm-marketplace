@@ -7,6 +7,17 @@ description: >
   USE FOR: fleet review, run fleet, multi-model review, 10 agent review,
   cm review, code review fleet, review changes, run code review,
   multi-perspective review, launch fleet.
+triggers:
+  - "fleet review"
+  - "run fleet"
+  - "multi-model review"
+  - "10 agent review"
+  - "cm review"
+  - "code review fleet"
+  - "review changes"
+  - "run code review"
+  - "multi-perspective review"
+  - "launch fleet"
 ---
 
 # CM Fleet Review
@@ -17,7 +28,7 @@ Config Manager project.
 
 Every agent reviews the **full changed files** (not just diffs) to catch
 inconsistencies, stale comments, and cross-file issues. Model diversity across
-3 Claude + 5 GPT + 1 Gemini variants maximizes perspective coverage.
+4 Claude + 5 GPT + 1 Gemini variants maximizes perspective coverage.
 
 ---
 
@@ -280,10 +291,10 @@ Quick-reference table for programmatic agent launch.
 
 ## Model Diversity
 
-The fleet uses 9 distinct models across 3 providers to maximize perspective
+The fleet uses 10 distinct models across 3 providers to maximize perspective
 diversity and minimize shared blind spots:
 
-- **Claude** (3 agents): opus-4.6, sonnet-4.6, sonnet-4.5, sonnet-4
+- **Claude** (4 agents): opus-4.6, sonnet-4.6, sonnet-4.5, sonnet-4
 - **GPT** (5 agents): 5.1-codex, 5.3-codex, 5.2-codex, 5.1-codex-max, 5.1
 - **Gemini** (1 agent): 3-pro-preview
 

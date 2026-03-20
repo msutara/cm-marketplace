@@ -57,6 +57,8 @@ plugins/<plugin-name>/
 │   ├── README.md
 │   └── <skill-name>/
 │       └── SKILL.md
+├── agents/               # Optional: custom agents
+│   └── <AgentName>.agent.md
 ├── scripts/              # Optional: helper scripts
 │   └── *.ps1
 └── README.md             # Required: plugin documentation
@@ -69,9 +71,12 @@ plugins/<plugin-name>/
   "name": "my-plugin",
   "version": "1.0.0",
   "description": "What this plugin provides",
-  "skills": "skills/"
+  "skills": "skills/",
+  "agents": "agents/"
 }
 ```
+
+The `agents` field is optional. Omit it if the plugin does not ship custom agents.
 
 ### 3. Register in marketplace.json
 

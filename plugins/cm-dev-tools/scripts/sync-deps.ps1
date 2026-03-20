@@ -8,18 +8,23 @@
     Go module path (e.g., "github.com/msutara/config-manager-core").
 .PARAMETER Version
     Tag or commit hash to update to (e.g., "v0.5.0").
+.PARAMETER RepoBase
+    Root directory containing the CM repos. Defaults to C:\Users\marius\repo.
+    Override when repos are cloned to a different location.
 .EXAMPLE
     .\sync-deps.ps1 -SourceModule "github.com/msutara/config-manager-core" -Version "v0.5.0"
+    .\sync-deps.ps1 -SourceModule "github.com/msutara/config-manager-core" -Version "v0.5.0" -RepoBase D:\projects
 #>
 param(
     [Parameter(Mandatory)]
     [string]$SourceModule,
 
     [Parameter(Mandatory)]
-    [string]$Version
+    [string]$Version,
+
+    [string]$RepoBase = 'C:\Users\marius\repo'
 )
 
-$repoBase = 'C:\Users\marius\repo'
 $allRepos = @(
     'config-manager-core',
     'cm-plugin-network',
@@ -32,7 +37,7 @@ $updated = @()
 $errors = @()
 
 foreach ($repo in $allRepos) {
-    $path = Join-Path $repoBase $repo
+    $path = Join-Path $RepoBase $repo
     $gomod = Join-Path $path 'go.mod'
 
     if (-not (Test-Path $gomod)) { continue }
@@ -42,9 +47,10 @@ foreach ($repo in $allRepos) {
         continue  # This repo doesn't import the source module
     }
 
-    # Skip self
+    # Skip self — extract module path and compare exactly
     $moduleLine = ($content -split "`n" | Where-Object { $_ -match '^module ' })[0]
-    if ($moduleLine -match [regex]::Escape($SourceModule)) { continue }
+    $thisModule = ($moduleLine -replace '^module\s+', '').Trim()
+    if ($thisModule -eq $SourceModule) { continue }
 
     Write-Output "Updating $repo..."
     Push-Location $path

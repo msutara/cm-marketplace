@@ -5,12 +5,17 @@
     Quick overview of all 5 CM repos: current branch, clean/dirty, last tag.
 .PARAMETER Repo
     Optional — single repo name. If omitted, shows all 5.
+.PARAMETER RepoBase
+    Root directory containing the CM repos. Defaults to C:\Users\marius\repo.
+    Override when repos are cloned to a different location.
 .EXAMPLE
     .\repo-status.ps1
     .\repo-status.ps1 -Repo config-manager-core
+    .\repo-status.ps1 -RepoBase D:\projects
 #>
 param(
-    [string]$Repo
+    [string]$Repo,
+    [string]$RepoBase = 'C:\Users\marius\repo'
 )
 
 $repos = @(
@@ -21,12 +26,10 @@ $repos = @(
     'config-manager-web'
 )
 
-$repoBase = 'C:\Users\marius\repo'
-
 if ($Repo) { $repos = @($Repo) }
 
 foreach ($r in $repos) {
-    $path = Join-Path $repoBase $r
+    $path = Join-Path $RepoBase $r
     if (-not (Test-Path $path)) {
         Write-Output "⚠️  $r — not found"
         continue

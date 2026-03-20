@@ -3,12 +3,21 @@
     Validates ALL 5 CM repos in sequence.
 .DESCRIPTION
     Runs validate-repo.ps1 for each repo and produces a summary.
+.PARAMETER SkipLint
+    Skip golangci-lint for all repos.
+.PARAMETER SkipMarkdown
+    Skip markdownlint-cli2 for all repos.
+.PARAMETER RepoBase
+    Root directory containing the CM repos. Defaults to C:\Users\marius\repo.
+    Override when repos are cloned to a different location.
 .EXAMPLE
     .\validate-all.ps1
+    .\validate-all.ps1 -RepoBase D:\projects
 #>
 param(
     [switch]$SkipLint,
-    [switch]$SkipMarkdown
+    [switch]$SkipMarkdown,
+    [string]$RepoBase = 'C:\Users\marius\repo'
 )
 
 $scriptDir = $PSScriptRoot
@@ -22,12 +31,11 @@ $repos = @(
     'config-manager-web'
 )
 
-$repoBase = 'C:\Users\marius\repo'
 $allPassed = $true
 $summaries = @()
 
 foreach ($repo in $repos) {
-    $repoPath = Join-Path $repoBase $repo
+    $repoPath = Join-Path $RepoBase $repo
     if (-not (Test-Path $repoPath)) {
         Write-Output "⚠️  $repo — directory not found at $repoPath"
         continue

@@ -11,7 +11,7 @@
 .PARAMETER SkipMarkdown
     Skip markdownlint-cli2.
 .EXAMPLE
-    .\validate-repo.ps1 -RepoPath "C:\Users\marius\repo\config-manager-core"
+    .\validate-repo.ps1 -RepoPath "C:\path\to\your\repos\config-manager-core"
 #>
 param(
     [Parameter(Mandatory)]
@@ -33,17 +33,22 @@ function Run-Step {
     param([string]$Name, [string]$Command, [string[]]$Args)
     $step = @{ name = $Name; success = $false; output = ''; duration = '' }
     $sw = [System.Diagnostics.Stopwatch]::StartNew()
+    $outFile = [System.IO.Path]::Combine([System.IO.Path]::GetTempPath(), "cm-$Name-$([System.IO.Path]::GetRandomFileName())-out.txt")
+    $errFile = [System.IO.Path]::Combine([System.IO.Path]::GetTempPath(), "cm-$Name-$([System.IO.Path]::GetRandomFileName())-err.txt")
     try {
         $proc = Start-Process -FilePath $Command -ArgumentList $Args -WorkingDirectory $RepoPath `
-            -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$env:TEMP\cm-$Name-out.txt" `
-            -RedirectStandardError "$env:TEMP\cm-$Name-err.txt"
-        $stdout = Get-Content "$env:TEMP\cm-$Name-out.txt" -Raw -ErrorAction SilentlyContinue
-        $stderr = Get-Content "$env:TEMP\cm-$Name-err.txt" -Raw -ErrorAction SilentlyContinue
+            -NoNewWindow -Wait -PassThru -RedirectStandardOutput $outFile `
+            -RedirectStandardError $errFile
+        $stdout = Get-Content $outFile -Raw -ErrorAction SilentlyContinue
+        $stderr = Get-Content $errFile -Raw -ErrorAction SilentlyContinue
         $step.output = if ($stdout) { $stdout.Trim() } else { $stderr.Trim() }
         $step.success = $proc.ExitCode -eq 0
     }
     catch {
         $step.output = $_.Exception.Message
+    }
+    finally {
+        Remove-Item $outFile, $errFile -ErrorAction SilentlyContinue
     }
     $sw.Stop()
     $step.duration = "$([math]::Round($sw.Elapsed.TotalSeconds, 1))s"
@@ -71,7 +76,7 @@ try {
 
     # Markdownlint
     if (-not $SkipMarkdown) {
-        $mdStep = Run-Step -Name 'markdownlint' -Command 'markdownlint-cli2' -Args @('"**/*.md"', '"#node_modules"')
+        $mdStep = Run-Step -Name 'markdownlint' -Command 'markdownlint-cli2' -Args @('**/*.md', '#node_modules')
         $results.steps += $mdStep
         if (-not $mdStep.success) { $results.success = $false }
     }

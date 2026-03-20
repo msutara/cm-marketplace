@@ -8,15 +8,21 @@
     Semver tag (e.g., "v0.5.0"). Required.
 .PARAMETER DryRun
     Show what would be tagged without actually tagging.
+.PARAMETER RepoBase
+    Root directory containing the CM repos. Defaults to C:\Users\marius\repo.
+    Override when repos are cloned to a different location.
 .EXAMPLE
     .\tag-all.ps1 -Version v0.5.0
     .\tag-all.ps1 -Version v0.5.0 -DryRun
+    .\tag-all.ps1 -Version v0.5.0 -RepoBase D:\projects
 #>
 param(
     [Parameter(Mandatory)]
     [string]$Version,
 
-    [switch]$DryRun
+    [switch]$DryRun,
+
+    [string]$RepoBase = 'C:\Users\marius\repo'
 )
 
 if ($Version -notmatch '^v\d+\.\d+\.\d+$') {
@@ -24,7 +30,6 @@ if ($Version -notmatch '^v\d+\.\d+\.\d+$') {
     return
 }
 
-$repoBase = 'C:\Users\marius\repo'
 $depOrder = @(
     'config-manager-core',
     'cm-plugin-network',
@@ -34,7 +39,7 @@ $depOrder = @(
 )
 
 foreach ($repo in $depOrder) {
-    $path = Join-Path $repoBase $repo
+    $path = Join-Path $RepoBase $repo
     if (-not (Test-Path $path)) {
         Write-Error "$repo not found at $path"
         return
@@ -46,7 +51,6 @@ foreach ($repo in $depOrder) {
         $status = git status --porcelain 2>$null
         if ($status) {
             Write-Error "$repo has uncommitted changes — aborting"
-            Pop-Location
             return
         }
 
@@ -54,7 +58,6 @@ foreach ($repo in $depOrder) {
         $branch = git branch --show-current 2>$null
         if ($branch -ne 'main') {
             Write-Error "$repo is on branch '$branch', not 'main' — aborting"
-            Pop-Location
             return
         }
 
@@ -66,13 +69,11 @@ foreach ($repo in $depOrder) {
             git tag $Version 2>&1
             if ($LASTEXITCODE -ne 0) {
                 Write-Error "Failed to create tag $Version in $repo"
-                Pop-Location
                 return
             }
             git push origin $Version 2>&1
             if ($LASTEXITCODE -ne 0) {
                 Write-Error "Failed to push tag $Version in $repo"
-                Pop-Location
                 return
             }
             Write-Output "  ✅ $repo tagged and pushed $Version"
