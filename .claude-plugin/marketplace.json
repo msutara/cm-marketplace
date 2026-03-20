@@ -1,0 +1,18 @@
+{
+  "name": "cm-marketplace",
+  "owner": {
+    "name": "Marius Sutara"
+  },
+  "metadata": {
+    "description": "Plugin marketplace for Config Manager — a multi-repo Go toolkit for headless Debian/ARM device management",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "cm-dev-tools",
+      "source": "./plugins/cm-dev-tools",
+      "description": "7 workflow skills (scaffold, fleet review, release, PR lifecycle, parity check, PR comments, docs sync) + PowerShell helper scripts + 2 custom agents for the Config Manager project. Zero external dependencies.",
+      "version": "1.0.0"
+    }
+  ]
+}
