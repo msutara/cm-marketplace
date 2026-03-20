@@ -98,7 +98,7 @@ For each repo's `README.md`:
 
 For each repo, execute:
 
-```powershell
+```bash
 cd {repo_path} && markdownlint-cli2 "**/*.md" "#node_modules"
 ```
 

@@ -52,7 +52,7 @@ Derive from these:
 
 ## Step 1 — Create the GitHub Repository
 
-```powershell
+```bash
 gh repo create msutara/cm-plugin-{name} --public --clone --description "{description}"
 cd cm-plugin-{name}
 git checkout -b phase1/skeleton-and-specs
@@ -60,7 +60,7 @@ git checkout -b phase1/skeleton-and-specs
 
 Verify the repo was created:
 
-```powershell
+```bash
 gh repo view msutara/cm-plugin-{name} --json name,url
 ```
 
@@ -121,7 +121,7 @@ require github.com/msutara/config-manager-core v0.4.3
 
 After writing the file, run:
 
-```powershell
+```bash
 go mod tidy
 ```
 
@@ -132,10 +132,10 @@ go mod tidy
 package {pkg}
 
 import (
-	"net/http"
-	"sync"
+ "net/http"
+ "sync"
 
-	"github.com/msutara/config-manager-core/plugin"
+ "github.com/msutara/config-manager-core/plugin"
 )
 
 // Compile-time interface checks.
@@ -145,103 +145,103 @@ var _ plugin.Configurable = (*{Name}Plugin)(nil)
 
 // {Name}Plugin implements plugin.Plugin for {description}.
 type {Name}Plugin struct {
-	svc *Service
-	mu  sync.RWMutex
+ svc *Service
+ mu  sync.RWMutex
 
-	// CONDITIONAL: add config fields here if Configurable is needed.
-	// Example:
-	// schedule string
+ // CONDITIONAL: add config fields here if Configurable is needed.
+ // Example:
+ // schedule string
 }
 
 // New{Name}Plugin creates a new {Name}Plugin with default settings.
 func New{Name}Plugin() *{Name}Plugin {
-	svc := &Service{}
-	return &{Name}Plugin{
-		svc: svc,
-	}
+ svc := &Service{}
+ return &{Name}Plugin{
+  svc: svc,
+ }
 }
 
 func (p *{Name}Plugin) Name() string {
-	return "{name}"
+ return "{name}"
 }
 
 func (p *{Name}Plugin) Version() string {
-	return "0.1.0"
+ return "0.1.0"
 }
 
 func (p *{Name}Plugin) Description() string {
-	return "{description}"
+ return "{description}"
 }
 
 func (p *{Name}Plugin) Routes() http.Handler {
-	// CONDITIONAL: if Configurable, pass p.CurrentConfig as second arg
-	return newRouter(p.svc)
+ // CONDITIONAL: if Configurable, pass p.CurrentConfig as second arg
+ return newRouter(p.svc)
 }
 
 func (p *{Name}Plugin) ScheduledJobs() []plugin.JobDefinition {
-	// CONDITIONAL: if needs_jobs is false, return nil.
-	// If true, return job definitions. Example:
-	// return []plugin.JobDefinition{
-	// 	{
-	// 		ID:          "{name}.check",
-	// 		Description: "Periodic {name} check",
-	// 		Cron:        "0 * * * *",
-	// 		Func:        p.svc.RunCheck,
-	// 	},
-	// }
-	return nil
+ // CONDITIONAL: if needs_jobs is false, return nil.
+ // If true, return job definitions. Example:
+ // return []plugin.JobDefinition{
+ //  {
+ //   ID:          "{name}.check",
+ //   Description: "Periodic {name} check",
+ //   Cron:        "0 * * * *",
+ //   Func:        p.svc.RunCheck,
+ //  },
+ // }
+ return nil
 }
 
 func (p *{Name}Plugin) Endpoints() []plugin.Endpoint {
-	return []plugin.Endpoint{
-		// FILL: one entry per endpoint from the user's initial endpoints list.
-		// Example:
-		// {Method: "GET", Path: "/status", Description: "Current {name} status"},
-		// {Method: "POST", Path: "/apply", Description: "Apply {name} rules"},
-	}
+ return []plugin.Endpoint{
+  // FILL: one entry per endpoint from the user's initial endpoints list.
+  // Example:
+  // {Method: "GET", Path: "/status", Description: "Current {name} status"},
+  // {Method: "POST", Path: "/apply", Description: "Apply {name} rules"},
+ }
 }
 
 // --- Configurable interface (CONDITIONAL — only if needs_config is true) ---
 
 // Configure applies startup configuration. Called once by the core.
 func (p *{Name}Plugin) Configure(cfg map[string]any) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	if cfg == nil {
-		return
-	}
-	// Apply config keys with sensible defaults. Example:
-	// if v, ok := cfg["schedule"].(string); ok {
-	// 	p.schedule = v
-	// }
+ p.mu.Lock()
+ defer p.mu.Unlock()
+ if cfg == nil {
+  return
+ }
+ // Apply config keys with sensible defaults. Example:
+ // if v, ok := cfg["schedule"].(string); ok {
+ //  p.schedule = v
+ // }
 }
 
 // UpdateConfig validates and applies a single config key change.
 func (p *{Name}Plugin) UpdateConfig(key string, value any) error {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	// Switch on key, validate, apply. Example:
-	// switch key {
-	// case "schedule":
-	// 	s, ok := value.(string)
-	// 	if !ok {
-	// 		return fmt.Errorf("schedule must be a string")
-	// 	}
-	// 	p.schedule = s
-	// default:
-	// 	return fmt.Errorf("unknown config key: %s", key)
-	// }
-	return nil
+ p.mu.Lock()
+ defer p.mu.Unlock()
+ // Switch on key, validate, apply. Example:
+ // switch key {
+ // case "schedule":
+ //  s, ok := value.(string)
+ //  if !ok {
+ //   return fmt.Errorf("schedule must be a string")
+ //  }
+ //  p.schedule = s
+ // default:
+ //  return fmt.Errorf("unknown config key: %s", key)
+ // }
+ return nil
 }
 
 // CurrentConfig returns the plugin's current configuration snapshot.
 func (p *{Name}Plugin) CurrentConfig() map[string]any {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return map[string]any{
-		// FILL: return all config keys. Example:
-		// "schedule": p.schedule,
-	}
+ p.mu.RLock()
+ defer p.mu.RUnlock()
+ return map[string]any{
+  // FILL: return all config keys. Example:
+  // "schedule": p.schedule,
+ }
 }
 ```
 
@@ -254,15 +254,15 @@ func (p *{Name}Plugin) CurrentConfig() map[string]any {
 package {pkg}
 
 import (
-	"log/slog"
-	"sync"
+ "log/slog"
+ "sync"
 )
 
 // Service contains the business logic for the {name} plugin.
 type Service struct {
-	mu sync.Mutex
+ mu sync.Mutex
 
-	// FILL: domain state fields here.
+ // FILL: domain state fields here.
 }
 
 // FILL: Add methods matching the user's endpoints and job functions.
@@ -274,10 +274,10 @@ type Service struct {
 // Example:
 //
 // func (s *Service) GetStatus() (*StatusResult, error) {
-// 	s.mu.Lock()
-// 	defer s.mu.Unlock()
-// 	slog.Info("fetching status", "plugin", "{name}")
-// 	return &StatusResult{}, nil
+//  s.mu.Lock()
+//  defer s.mu.Unlock()
+//  slog.Info("fetching status", "plugin", "{name}")
+//  return &StatusResult{}, nil
 // }
 ```
 
@@ -287,62 +287,62 @@ type Service struct {
 package {pkg}
 
 import (
-	"encoding/json"
-	"log/slog"
-	"net/http"
+ "encoding/json"
+ "log/slog"
+ "net/http"
 
-	"github.com/go-chi/chi/v5"
+ "github.com/go-chi/chi/v5"
 )
 
 type handler struct {
-	svc *Service
+ svc *Service
 }
 
 func newRouter(svc *Service) http.Handler {
-	r := chi.NewRouter()
-	h := &handler{svc: svc}
+ r := chi.NewRouter()
+ h := &handler{svc: svc}
 
-	// FILL: register routes from the user's endpoints list. Examples:
-	// r.Get("/status", h.handleStatus)
-	// r.Post("/apply", h.handleApply)
+ // FILL: register routes from the user's endpoints list. Examples:
+ // r.Get("/status", h.handleStatus)
+ // r.Post("/apply", h.handleApply)
 
-	return r
+ return r
 }
 
 // FILL: implement one handler function per route. Example:
 //
 // func (h *handler) handleStatus(w http.ResponseWriter, r *http.Request) {
-// 	result, err := h.svc.GetStatus()
-// 	if err != nil {
-// 		writeError(w, http.StatusInternalServerError, "status check failed", err.Error())
-// 		return
-// 	}
-// 	writeJSON(w, http.StatusOK, result)
+//  result, err := h.svc.GetStatus()
+//  if err != nil {
+//   writeError(w, http.StatusInternalServerError, "status check failed", err.Error())
+//   return
+//  }
+//  writeJSON(w, http.StatusOK, result)
 // }
 
 // --- Shared HTTP helpers ---
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	if err := json.NewEncoder(w).Encode(v); err != nil {
-		slog.Error("failed to encode response", "plugin", "{name}", "error", err)
-	}
+ w.Header().Set("Content-Type", "application/json")
+ w.WriteHeader(status)
+ if err := json.NewEncoder(w).Encode(v); err != nil {
+  slog.Error("failed to encode response", "plugin", "{name}", "error", err)
+ }
 }
 
 func writeError(w http.ResponseWriter, status int, message, details string) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	resp := map[string]any{
-		"error": map[string]any{
-			"code":    status,
-			"message": message,
-			"details": details,
-		},
-	}
-	if err := json.NewEncoder(w).Encode(resp); err != nil {
-		slog.Error("failed to encode error response", "plugin", "{name}", "error", err)
-	}
+ w.Header().Set("Content-Type", "application/json")
+ w.WriteHeader(status)
+ resp := map[string]any{
+  "error": map[string]any{
+   "code":    status,
+   "message": message,
+   "details": details,
+  },
+ }
+ if err := json.NewEncoder(w).Encode(resp); err != nil {
+  slog.Error("failed to encode error response", "plugin", "{name}", "error", err)
+ }
 }
 ```
 
@@ -352,71 +352,71 @@ func writeError(w http.ResponseWriter, status int, message, details string) {
 package {pkg}
 
 import (
-	"testing"
+ "testing"
 
-	"github.com/msutara/config-manager-core/plugin"
+ "github.com/msutara/config-manager-core/plugin"
 )
 
 func TestPluginInterface(t *testing.T) {
-	p := New{Name}Plugin()
+ p := New{Name}Plugin()
 
-	if p.Name() == "" {
-		t.Error("Name() must not be empty")
-	}
-	if p.Version() == "" {
-		t.Error("Version() must not be empty")
-	}
-	if p.Description() == "" {
-		t.Error("Description() must not be empty")
-	}
+ if p.Name() == "" {
+  t.Error("Name() must not be empty")
+ }
+ if p.Version() == "" {
+  t.Error("Version() must not be empty")
+ }
+ if p.Description() == "" {
+  t.Error("Description() must not be empty")
+ }
 }
 
 func TestPluginName(t *testing.T) {
-	p := New{Name}Plugin()
-	if got := p.Name(); got != "{name}" {
-		t.Errorf("Name() = %q, want %q", got, "{name}")
-	}
+ p := New{Name}Plugin()
+ if got := p.Name(); got != "{name}" {
+  t.Errorf("Name() = %q, want %q", got, "{name}")
+ }
 }
 
 func TestPluginVersion(t *testing.T) {
-	p := New{Name}Plugin()
-	if got := p.Version(); got != "0.1.0" {
-		t.Errorf("Version() = %q, want %q", got, "0.1.0")
-	}
+ p := New{Name}Plugin()
+ if got := p.Version(); got != "0.1.0" {
+  t.Errorf("Version() = %q, want %q", got, "0.1.0")
+ }
 }
 
 func TestPluginRoutes(t *testing.T) {
-	p := New{Name}Plugin()
-	if p.Routes() == nil {
-		t.Error("Routes() must not return nil")
-	}
+ p := New{Name}Plugin()
+ if p.Routes() == nil {
+  t.Error("Routes() must not return nil")
+ }
 }
 
 func TestPluginEndpoints(t *testing.T) {
-	p := New{Name}Plugin()
-	endpoints := p.Endpoints()
-	if len(endpoints) == 0 {
-		t.Error("Endpoints() must return at least one endpoint")
-	}
-	for _, ep := range endpoints {
-		if ep.Method == "" {
-			t.Error("Endpoint.Method must not be empty")
-		}
-		if ep.Path == "" {
-			t.Error("Endpoint.Path must not be empty")
-		}
-	}
+ p := New{Name}Plugin()
+ endpoints := p.Endpoints()
+ if len(endpoints) == 0 {
+  t.Error("Endpoints() must return at least one endpoint")
+ }
+ for _, ep := range endpoints {
+  if ep.Method == "" {
+   t.Error("Endpoint.Method must not be empty")
+  }
+  if ep.Path == "" {
+   t.Error("Endpoint.Path must not be empty")
+  }
+ }
 }
 
 // CONDITIONAL: include only if Configurable is needed.
 func TestPluginConfigurable(t *testing.T) {
-	var p plugin.Configurable = New{Name}Plugin()
-	p.Configure(nil)
+ var p plugin.Configurable = New{Name}Plugin()
+ p.Configure(nil)
 
-	cfg := p.CurrentConfig()
-	if cfg == nil {
-		t.Error("CurrentConfig() must not return nil")
-	}
+ cfg := p.CurrentConfig()
+ if cfg == nil {
+  t.Error("CurrentConfig() must not return nil")
+ }
 }
 ```
 
@@ -426,27 +426,27 @@ func TestPluginConfigurable(t *testing.T) {
 package {pkg}
 
 import (
-	"testing"
+ "testing"
 )
 
 func TestServiceCreation(t *testing.T) {
-	svc := &Service{}
-	if svc == nil {
-		t.Fatal("Service must not be nil")
-	}
+ svc := &Service{}
+ if svc == nil {
+  t.Fatal("Service must not be nil")
+ }
 }
 
 // FILL: add one test per Service method. Example:
 //
 // func TestServiceGetStatus(t *testing.T) {
-// 	svc := &Service{}
-// 	result, err := svc.GetStatus()
-// 	if err != nil {
-// 		t.Fatalf("GetStatus() error: %v", err)
-// 	}
-// 	if result == nil {
-// 		t.Fatal("GetStatus() returned nil")
-// 	}
+//  svc := &Service{}
+//  result, err := svc.GetStatus()
+//  if err != nil {
+//   t.Fatalf("GetStatus() error: %v", err)
+//  }
+//  if result == nil {
+//   t.Fatal("GetStatus() returned nil")
+//  }
 // }
 ```
 
@@ -456,50 +456,50 @@ func TestServiceCreation(t *testing.T) {
 package {pkg}
 
 import (
-	"net/http"
-	"net/http/httptest"
-	"testing"
+ "net/http"
+ "net/http/httptest"
+ "testing"
 )
 
 func newTestServer(t *testing.T) *httptest.Server {
-	t.Helper()
-	svc := &Service{}
-	return httptest.NewServer(newRouter(svc))
+ t.Helper()
+ svc := &Service{}
+ return httptest.NewServer(newRouter(svc))
 }
 
 // FILL: add one test per route. Example:
 //
 // func TestGetStatus(t *testing.T) {
-// 	ts := newTestServer(t)
-// 	defer ts.Close()
+//  ts := newTestServer(t)
+//  defer ts.Close()
 //
-// 	resp, err := http.Get(ts.URL + "/status")
-// 	if err != nil {
-// 		t.Fatalf("GET /status error: %v", err)
-// 	}
-// 	defer resp.Body.Close()
+//  resp, err := http.Get(ts.URL + "/status")
+//  if err != nil {
+//   t.Fatalf("GET /status error: %v", err)
+//  }
+//  defer resp.Body.Close()
 //
-// 	if resp.StatusCode != http.StatusOK {
-// 		t.Errorf("GET /status status = %d, want %d", resp.StatusCode, http.StatusOK)
-// 	}
-// 	if ct := resp.Header.Get("Content-Type"); ct != "application/json" {
-// 		t.Errorf("Content-Type = %q, want application/json", ct)
-// 	}
+//  if resp.StatusCode != http.StatusOK {
+//   t.Errorf("GET /status status = %d, want %d", resp.StatusCode, http.StatusOK)
+//  }
+//  if ct := resp.Header.Get("Content-Type"); ct != "application/json" {
+//   t.Errorf("Content-Type = %q, want application/json", ct)
+//  }
 // }
 //
 // func TestPostApply(t *testing.T) {
-// 	ts := newTestServer(t)
-// 	defer ts.Close()
+//  ts := newTestServer(t)
+//  defer ts.Close()
 //
-// 	resp, err := http.Post(ts.URL+"/apply", "application/json", strings.NewReader(`{}`))
-// 	if err != nil {
-// 		t.Fatalf("POST /apply error: %v", err)
-// 	}
-// 	defer resp.Body.Close()
+//  resp, err := http.Post(ts.URL+"/apply", "application/json", strings.NewReader(`{}`))
+//  if err != nil {
+//   t.Fatalf("POST /apply error: %v", err)
+//  }
+//  defer resp.Body.Close()
 //
-// 	if resp.StatusCode != http.StatusOK {
-// 		t.Errorf("POST /apply status = %d, want %d", resp.StatusCode, http.StatusOK)
-// 	}
+//  if resp.StatusCode != http.StatusOK {
+//   t.Errorf("POST /apply status = %d, want %d", resp.StatusCode, http.StatusOK)
+//  }
 // }
 ```
 
@@ -1120,7 +1120,6 @@ HTTP Request
 - **Chi router** — consistent with all other CM plugins.
 - **Mutex strategy** — `sync.Mutex` in Service for state mutations,
   `sync.RWMutex` in Plugin for config access.
-```
 
 ### 3.24 — docs/USAGE.md
 
@@ -1183,7 +1182,7 @@ The plugin exposes configuration via `GET /config`:
 
 ## Step 4 — Run `go mod tidy` and Verify Build
 
-```powershell
+```bash
 cd cm-plugin-{name}
 go mod tidy
 go build ./...
@@ -1211,8 +1210,8 @@ Edit `C:\Users\marius\repo\config-manager-core\cmd\cm\main.go`:
 
 3. Run `go mod tidy` in `config-manager-core` to pull the new dependency:
 
-   ```powershell
-   cd C:\Users\marius\repo\config-manager-core
+   ```bash
+   cd ~/repo/config-manager-core
    go get github.com/msutara/cm-plugin-{name}@latest
    go mod tidy
    go build ./...
@@ -1224,13 +1223,13 @@ Edit `C:\Users\marius\repo\config-manager-core\cmd\cm\main.go`:
 
 ## Step 6 — Add to GitHub Project Board
 
-```powershell
+```bash
 gh project item-add 1 --owner msutara --url "https://github.com/msutara/cm-plugin-{name}"
 ```
 
 ## Step 7 — Commit and Create Initial PR
 
-```powershell
+```bash
 cd cm-plugin-{name}
 git add -A
 git commit -m "feat: scaffold {name} plugin skeleton
@@ -1250,19 +1249,19 @@ git push -u origin phase1/skeleton-and-specs
 
 Create the PR:
 
-```powershell
-gh pr create `
-  --repo msutara/cm-plugin-{name} `
-  --base main `
-  --head phase1/skeleton-and-specs `
-  --title "feat: scaffold {name} plugin skeleton and specs" `
+```bash
+gh pr create \
+  --repo msutara/cm-plugin-{name} \
+  --base main \
+  --head phase1/skeleton-and-specs \
+  --title "feat: scaffold {name} plugin skeleton and specs" \
   --body "## Summary
 
 Initial plugin scaffold for **cm-plugin-{name}** — {description}.
 
 ### What's included
 
-- \`plugin.go\` — \`{Name}Plugin\` implementing \`plugin.Plugin\`$(if needs_config) and \`plugin.Configurable\`
+- \`plugin.go\` — \`{Name}Plugin\` implementing \`plugin.Plugin\` and \`plugin.Configurable\` (if needs_config)
 - \`service.go\` — business logic layer
 - \`routes.go\` — Chi router with endpoint handlers
 - Unit tests (\`plugin_test.go\`, \`service_test.go\`, \`routes_test.go\`)

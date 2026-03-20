@@ -172,7 +172,7 @@ Compile all findings into a single report with this structure:
 
 Ask the user whether to create GitHub issues for each gap. If approved, run:
 
-```powershell
+```bash
 gh issue create --repo msutara/config-manager-web --title "Parity: Add {feature}" --body "{details}"
 ```
 

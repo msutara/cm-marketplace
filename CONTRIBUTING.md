@@ -2,103 +2,115 @@
 
 This guide explains how to add new plugins or skills to the marketplace.
 
-## Adding a New Skill to cm-dev-tools
-
-### 1. Create the skill directory
-
-```text
-plugins/cm-dev-tools/skills/<skill-name>/
-└── SKILL.md
-```
-
-### 2. Write the SKILL.md
-
-Every skill file uses YAML frontmatter + markdown body:
-
-```markdown
----
-name: my-skill-name
-description: >
-  What this skill does. Include trigger phrases so the agent
-  knows when to activate: "trigger one", "trigger two", etc.
----
-
-# Skill Title
-
-## Input
-What the skill needs from the user.
-
-## Execution
-Step-by-step protocol the agent follows.
-
-## Output
-What the skill produces.
-```
-
-### 3. Update the skills README
-
-Add your skill to `plugins/cm-dev-tools/skills/README.md` in the
-appropriate category.
-
-### 4. Test the skill
-
-Invoke it in a Copilot CLI or Claude Code session using one of the
-trigger phrases from the description.
-
 ## Adding a New Plugin
 
 ### 1. Create the plugin directory
 
-```text
-plugins/<plugin-name>/
+```txt
+plugins/<your-plugin-name>/
 ├── .claude-plugin/
-│   └── plugin.json       # Required: plugin manifest
-├── skills/               # Required: at least one skill
+│   └── plugin.json           # Required: plugin manifest
+├── README.md                 # Required: plugin documentation
+├── skills/                   # Required: at least one skill
 │   ├── README.md
 │   └── <skill-name>/
 │       └── SKILL.md
-├── scripts/              # Optional: helper scripts
-│   └── *.ps1
-└── README.md             # Required: plugin documentation
+└── scripts/                  # Optional: bash helper scripts
+    └── *.sh
 ```
 
 ### 2. Create the plugin manifest
+
+Create `.claude-plugin/plugin.json`:
 
 ```json
 {
   "name": "my-plugin",
   "version": "1.0.0",
   "description": "What this plugin provides",
-  "skills": "skills/"
+  "skills": "./skills/"
 }
 ```
 
-### 3. Register in marketplace.json
+### 3. Add skills
 
-Add an entry to `.claude-plugin/marketplace.json`:
+Skills are reusable investigation or workflow protocols that AI agents can execute. Each skill lives in its own directory under `skills/`:
+
+```txt
+plugins/<your-plugin-name>/
+└── skills/
+    └── <skill-name>/
+        └── SKILL.md              # Required: skill definition
+```
+
+A `SKILL.md` file uses YAML front matter for metadata and markdown for the execution protocol:
+
+```markdown
+---
+name: my-skill-name
+description: >
+  One-paragraph description of what the skill does and when to use it.
+  Include trigger phrases that should activate this skill.
+---
+
+# Skill Title
+
+## Input
+
+What parameters the skill accepts.
+
+## Execution Protocol
+
+Step-by-step instructions the agent follows.
+
+## Output Format
+
+How to present results.
+```
+
+**Skill guidelines:**
+
+- One skill per directory — the directory name should match the `name` in front matter.
+- Use `{PLACEHOLDER}` syntax for dynamic values in templates.
+- Include column casing warnings where applicable.
+
+### 4. Add bash scripts (optional)
+
+Scripts go in `plugins/<plugin-name>/scripts/`. Conventions:
+
+- Include a usage comment at the top of the file
+- Use `set -euo pipefail` for strict error handling
+- Use `${CM_REPO_BASE:-$HOME/repo}` for the repo base path (configurable via env var)
+- Return structured output (not just raw text)
+- Handle errors gracefully with clear messages
+- Use `✅` / `❌` / `⚠️` icons for scannable output
+
+### 5. Register in the marketplace
+
+Add your plugin to the `plugins` array in `.claude-plugin/marketplace.json`:
 
 ```json
 {
   "name": "my-plugin",
   "source": "./plugins/my-plugin",
-  "description": "Brief description",
+  "description": "What this plugin does",
   "version": "1.0.0"
 }
 ```
 
-### 4. Update the root README
+### 6. Update the root README
 
-Add your plugin to the "Available Plugins" table.
+Add a row to the **Available Plugins** table in `README.md`.
 
-## Adding a PowerShell Helper Script
+### 7. Verify
 
-Scripts go in `plugins/<plugin-name>/scripts/`. Conventions:
+Run the full lint suite before pushing:
 
-- Include full `.SYNOPSIS`, `.DESCRIPTION`, `.PARAMETER`, `.EXAMPLE` help
-- Use `param()` blocks with `[Parameter(Mandatory)]` where appropriate
-- Return structured output (not just raw text)
-- Handle errors gracefully with clear messages
-- Use `✅` / `❌` / `⚠️` icons for scannable output
+```bash
+npm run lint:all
+```
+
+This checks markdown (markdownlint) and JavaScript (ESLint).
 
 ## Adding a Custom Agent
 
@@ -122,6 +134,14 @@ description: 'One-line description of the agent'
 ## Knowledge
 ...
 ```
+
+## Conventions
+
+- **Plugin names** — lowercase, kebab-case (e.g., `cm-dev-tools`).
+- **Skill names** — lowercase, kebab-case matching the directory name.
+- **Script names** — lowercase, kebab-case `.sh` files with `#!/usr/bin/env bash` shebang.
+- **No secrets** — never commit credentials, connection strings, or tokens.
+- **Node.js 20+** — required for markdownlint-cli2 0.20.0 and ESLint 10.
 
 ## Version Bumping
 

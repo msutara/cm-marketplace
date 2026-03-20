@@ -47,8 +47,8 @@ Retrieve **all** review threads for the target PR — both open and resolved.
 
 ### Open (unresolved) threads
 
-```powershell
-gh pr view {PR_NUMBER} --repo msutara/{repo} --json reviewThreads `
+```bash
+gh pr view {PR_NUMBER} --repo msutara/{repo} --json reviewThreads \
   --jq '.reviewThreads[] | select(.isResolved == false)'
 ```
 
@@ -57,8 +57,8 @@ gh pr view {PR_NUMBER} --repo msutara/{repo} --json reviewThreads `
 Closed threads from human reviewers often contain valid suggestions that were
 dismissed rather than implemented. Always inspect them.
 
-```powershell
-gh pr view {PR_NUMBER} --repo msutara/{repo} --json reviewThreads `
+```bash
+gh pr view {PR_NUMBER} --repo msutara/{repo} --json reviewThreads \
   --jq '.reviewThreads[] | select(.isResolved == true)'
 ```
 
@@ -158,10 +158,10 @@ For comments marked *safe to quick-fix*:
 
 After pushing a fix, resolve the corresponding review thread via GraphQL:
 
-```powershell
-$threadId = "{THREAD_NODE_ID}"
-$mutation = "mutation { resolveReviewThread(input: {threadId: ""$threadId""}) { thread { isResolved } } }"
-gh api graphql -f query=$mutation
+```bash
+threadId="{THREAD_NODE_ID}"
+mutation="mutation { resolveReviewThread(input: {threadId: \"$threadId\"}) { thread { isResolved } } }"
+gh api graphql -f query="$mutation"
 ```
 
 ## Step 6 — Handle Unresolvable Comments
@@ -171,13 +171,13 @@ If a comment cannot be addressed in this PR cycle:
 1. Create a GitHub issue tracking the deferred work.
 2. Add the issue to the project board as **Backlog**.
 
-   ```powershell
-   $itemId = gh project item-add PVT_kwHOAgHix84BPSxN --owner msutara --url {ISSUE_URL} --format json | ConvertFrom-Json | Select-Object -ExpandProperty id
+   ```bash
+   itemId=$(gh project item-add PVT_kwHOAgHix84BPSxN --owner msutara --url {ISSUE_URL} --format json | jq -r '.id')
    ```
 
 3. Resolve the thread with a comment linking to the new issue.
 
-   ```powershell
+   ```bash
    gh api graphql -f query='mutation {
      addComment(input: {subjectId: "{THREAD_NODE_ID}", body: "Deferred to #{ISSUE_NUMBER} — tracked on the project board."}) {
        commentEdge { node { id } }

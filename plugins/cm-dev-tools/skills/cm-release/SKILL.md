@@ -75,8 +75,8 @@ Accepted formats:
 If a bump type is given instead of an explicit version, calculate the next version
 from the latest git tag across all repos:
 
-```powershell
-$latestTag = git -C $repoPath describe --tags --abbrev=0 2>$null
+```bash
+latestTag=$(git -C "$repoPath" describe --tags --abbrev=0 2>/dev/null)
 ```
 
 Parse with semver rules, increment the requested component, and reset lower
@@ -101,64 +101,54 @@ a matrix and report the first failure.
 | 5 | Go lint    | `golangci-lint run`      | Exit code 0   |
 | 6 | MD lint    | `markdownlint-cli2`      | Exit code 0   |
 
-```powershell
-$base = "C:\Users\marius\repo"
-$repos = @(
-    @{ Name = "config-manager-core"
-       Path = "$base\config-manager-core" },
-    @{ Name = "cm-plugin-network"
-       Path = "$base\cm-plugin-network" },
-    @{ Name = "cm-plugin-update"
-       Path = "$base\cm-plugin-update" },
-    @{ Name = "config-manager-tui"
-       Path = "$base\config-manager-tui" },
-    @{ Name = "config-manager-web"
-       Path = "$base\config-manager-web" }
+```bash
+base="$HOME/repo"
+repos=(
+    "config-manager-core"
+    "cm-plugin-network"
+    "cm-plugin-update"
+    "config-manager-tui"
+    "config-manager-web"
 )
 
-foreach ($repo in $repos) {
-    Push-Location $repo.Path
-    $n = $repo.Name
+for n in "${repos[@]}"; do
+    pushd "$base/$n" > /dev/null
 
-    $dirty = git status --porcelain
-    if ($dirty) {
-        Write-Error "❌ ${n}: dirty tree"
-        Pop-Location; return
-    }
+    dirty=$(git status --porcelain)
+    if [[ -n "$dirty" ]]; then
+        echo "❌ ${n}: dirty tree" >&2
+        popd > /dev/null; exit 1
+    fi
 
-    $branch = git branch --show-current
-    if ($branch -ne "main") {
-        Write-Error "❌ ${n}: on '$branch'"
-        Pop-Location; return
-    }
+    branch=$(git branch --show-current)
+    if [[ "$branch" != "main" ]]; then
+        echo "❌ ${n}: on '$branch'" >&2
+        popd > /dev/null; exit 1
+    fi
 
-    go build ./...
-    if ($LASTEXITCODE -ne 0) {
-        Write-Error "❌ ${n}: go build failed"
-        Pop-Location; return
-    }
+    if ! go build ./...; then
+        echo "❌ ${n}: go build failed" >&2
+        popd > /dev/null; exit 1
+    fi
 
-    go test ./...
-    if ($LASTEXITCODE -ne 0) {
-        Write-Error "❌ ${n}: go test failed"
-        Pop-Location; return
-    }
+    if ! go test ./...; then
+        echo "❌ ${n}: go test failed" >&2
+        popd > /dev/null; exit 1
+    fi
 
-    golangci-lint run
-    if ($LASTEXITCODE -ne 0) {
-        Write-Error "❌ ${n}: lint failed"
-        Pop-Location; return
-    }
+    if ! golangci-lint run; then
+        echo "❌ ${n}: lint failed" >&2
+        popd > /dev/null; exit 1
+    fi
 
-    markdownlint-cli2 "**/*.md" "#node_modules"
-    if ($LASTEXITCODE -ne 0) {
-        Write-Error "❌ ${n}: mdlint failed"
-        Pop-Location; return
-    }
+    if ! markdownlint-cli2 "**/*.md" "#node_modules"; then
+        echo "❌ ${n}: mdlint failed" >&2
+        popd > /dev/null; exit 1
+    fi
 
-    Write-Host "✅ ${n}: all checks passed"
-    Pop-Location
-}
+    echo "✅ ${n}: all checks passed"
+    popd > /dev/null
+done
 ```
 
 ### Failure reporting
@@ -194,16 +184,16 @@ plugins import it, and tui/web import plugins + core.
 5. config-manager-web   → tag + push
 ```
 
-```powershell
-$version = "v0.5.0"  # from user input
+```bash
+version="v0.5.0"  # from user input
 
-foreach ($repo in $repos) {
-    Push-Location $repo.Path
-    git tag $version
-    git push origin $version
-    Write-Host "🏷️  Tagged $($repo.Name) → $version"
-    Pop-Location
-}
+for n in "${repos[@]}"; do
+    pushd "$base/$n" > /dev/null
+    git tag "$version"
+    git push origin "$version"
+    echo "🏷️  Tagged ${n} → $version"
+    popd > /dev/null
+done
 ```
 
 ### Re-tagging (deleting an existing tag)
@@ -211,24 +201,24 @@ foreach ($repo in $repos) {
 If the tag already exists on a repo, **require explicit user approval** before
 deleting and re-creating it:
 
-```powershell
-$existingTag = git -C $repo.Path tag -l $version
-if ($existingTag) {
+```bash
+existingTag=$(git -C "$base/$n" tag -l "$version")
+if [[ -n "$existingTag" ]]; then
     # ⚠️ MUST ask user for confirmation before proceeding
-    git -C $repo.Path tag -d $version
-    git -C $repo.Path push origin --delete $version
-    git -C $repo.Path tag $version
-    git -C $repo.Path push origin $version
-}
+    git -C "$base/$n" tag -d "$version"
+    git -C "$base/$n" push origin --delete "$version"
+    git -C "$base/$n" tag "$version"
+    git -C "$base/$n" push origin "$version"
+fi
 ```
 
 ## Phase 3 — Release Notes Generation
 
 For each repo, generate release notes from commits since the previous tag:
 
-```powershell
-$prevTag = git describe --tags --abbrev=0 HEAD~1 2>$null
-$log = git log "$prevTag..HEAD" --oneline --no-merges
+```bash
+prevTag=$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null)
+log=$(git log "$prevTag..HEAD" --oneline --no-merges)
 ```
 
 Format as markdown with two sections:
@@ -263,15 +253,15 @@ Sort commits into groups by conventional-commit prefix:
 
 Create a GitHub release for each repo using the generated notes:
 
-```powershell
-foreach ($repo in $repos) {
-    $notes = # assembled from Phase 3
-    gh release create $version `
-        --repo "msutara/$($repo.Name)" `
-        --title $version `
-        --notes $notes
-    Write-Host "📦 Release created: https://github.com/msutara/$($repo.Name)/releases/tag/$version"
-}
+```bash
+for n in "${repos[@]}"; do
+    notes=# assembled from Phase 3
+    gh release create "$version" \
+        --repo "msutara/$n" \
+        --title "$version" \
+        --notes "$notes"
+    echo "📦 Release created: https://github.com/msutara/$n/releases/tag/$version"
+done
 ```
 
 ## Phase 5 — Release Workflow Verification
@@ -290,33 +280,37 @@ The core repo builds `.deb` packages for three architectures:
 
 ### Verification steps
 
-```powershell
-foreach ($repo in $repos) {
+```bash
+for n in "${repos[@]}"; do
     # Check latest release workflow run
-    $run = gh run list `
-        --repo "msutara/$($repo.Name)" `
-        --workflow "release.yml" `
-        --limit 1 `
-        --json status,conclusion,databaseId
+    run=$(gh run list \
+        --repo "msutara/$n" \
+        --workflow "release.yml" \
+        --limit 1 \
+        --json status,conclusion,databaseId)
+
+    status=$(echo "$run" | jq -r '.[0].status')
+    conclusion=$(echo "$run" | jq -r '.[0].conclusion')
+    dbId=$(echo "$run" | jq -r '.[0].databaseId')
 
     # Wait for completion if still in progress
-    if ($run.status -eq "in_progress") {
-        gh run watch $run.databaseId --repo "msutara/$($repo.Name)"
-    }
+    if [[ "$status" == "in_progress" ]]; then
+        gh run watch "$dbId" --repo "msutara/$n"
+    fi
 
     # Verify conclusion
-    if ($run.conclusion -ne "success") {
-        Write-Error "❌ $($repo.Name): release workflow failed"
-    }
+    if [[ "$conclusion" != "success" ]]; then
+        echo "❌ ${n}: release workflow failed" >&2
+    fi
 
     # For core repo, verify .deb artifacts are attached
-    if ($repo.Name -eq "config-manager-core") {
-        $assets = gh release view $version `
-            --repo "msutara/$($repo.Name)" `
-            --json assets --jq '.assets[].name'
+    if [[ "$n" == "config-manager-core" ]]; then
+        assets=$(gh release view "$version" \
+            --repo "msutara/$n" \
+            --json assets --jq '.assets[].name')
         # Expect 3 .deb files
-    }
-}
+    fi
+done
 ```
 
 If any workflow fails, report the failure and provide the run URL for
@@ -328,7 +322,7 @@ investigation. Do **not** mark the release as complete.
 
 Set all release-related items to **Done**:
 
-```powershell
+```bash
 # Query items linked to the release milestone/version
 # Update status field to Done
 gh api graphql -f query='
@@ -346,12 +340,12 @@ gh api graphql -f query='
 
 ### Pull latest tags locally
 
-```powershell
-foreach ($repo in $repos) {
-    Push-Location $repo.Path
+```bash
+for n in "${repos[@]}"; do
+    pushd "$base/$n" > /dev/null
     git fetch --tags
-    Pop-Location
-}
+    popd > /dev/null
+done
 ```
 
 ### Print release summary

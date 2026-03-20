@@ -82,7 +82,7 @@ These rules are **permanent and non-negotiable**:
 
 Run all quality gates in the repo root. Every gate must pass before proceeding.
 
-```powershell
+```bash
 go build ./...
 go test ./...
 golangci-lint run
@@ -90,7 +90,7 @@ golangci-lint run
 
 If any markdown files changed:
 
-```powershell
+```bash
 markdownlint-cli2 "**/*.md" "#node_modules"
 ```
 
@@ -120,7 +120,7 @@ Iterate until the fleet review is clean:
 
 ### Phase 4 — Stage and Review
 
-```powershell
+```bash
 git add -A
 git diff --staged
 ```
@@ -157,13 +157,13 @@ Rules:
 
 Push to the feature branch. **Never push to `main`.**
 
-```powershell
+```bash
 git push origin {branch-name}
 ```
 
 If the branch does not exist on the remote, use:
 
-```powershell
+```bash
 git push -u origin {branch-name}
 ```
 
@@ -171,7 +171,7 @@ git push -u origin {branch-name}
 
 Create the pull request via `gh` CLI:
 
-```powershell
+```bash
 gh pr create --title "{title}" --body "{body}" --base main --head {branch-name}
 ```
 
@@ -209,13 +209,13 @@ Closes #{issue_number}
 
 Add the PR to the GitHub project and set status to **Review**:
 
-```powershell
+```bash
 gh project item-add 1 --owner msutara --url {PR_URL}
 ```
 
 Then update the item status to Review using the GraphQL API:
 
-```powershell
+```bash
 gh api graphql -f query='
   mutation {
     updateProjectV2ItemFieldValue(
@@ -233,7 +233,7 @@ gh api graphql -f query='
 
 Check CI status after push:
 
-```powershell
+```bash
 gh pr checks {PR_NUMBER}
 ```
 
@@ -247,7 +247,7 @@ have a final status.
 
 Fetch PR comments:
 
-```powershell
+```bash
 gh pr view {PR_NUMBER} --comments
 ```
 
@@ -277,27 +277,15 @@ After fixing:
 
 When the user approves:
 
-```powershell
+```bash
 gh pr merge {PR_NUMBER} --squash --delete-branch
 ```
 
 Post-merge cleanup:
 
-```powershell
+```bash
 # Update project board status to Done
 gh api graphql -f query='
-  mutation {
-    updateProjectV2ItemFieldValue(
-      input: {
-        projectId: "PVT_kwHOAgHix84BPSxN"
-        itemId: "{ITEM_ID}"
-        fieldId: "PVTSSF_lAHOAgHix84BPSxNzg9vkrk"
-        value: { singleSelectOptionId: "98236657" }
-      }
-    ) { projectV2Item { id } }
-  }'
-
-# Prune stale remote refs
 git remote update origin --prune
 
 # Delete local feature branch
