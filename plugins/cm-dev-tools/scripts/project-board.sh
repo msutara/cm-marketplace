@@ -22,7 +22,9 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/lib/load-project.sh"
 
 # project-board.sh requires project_board config in the manifest
-if [ -z "$PROJECT_NUMBER" ] || [ -z "$PROJECT_ID" ] || [ -z "$STATUS_FIELD_ID" ]; then
+if [[ -z "$PROJECT_NUMBER" || "$PROJECT_NUMBER" == "null" || \
+      -z "$PROJECT_ID" || "$PROJECT_ID" == "null" || \
+      -z "$STATUS_FIELD_ID" || "$STATUS_FIELD_ID" == "null" ]]; then
   echo "Error: project_board config missing or incomplete in manifest." >&2
   echo "Run init-project.sh to configure project board settings." >&2
   exit 1

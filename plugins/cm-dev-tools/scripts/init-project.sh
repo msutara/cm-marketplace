@@ -7,6 +7,12 @@ REPO_BASE="${CM_REPO_BASE:-$HOME/repo}"
 TARGET_DIR="$REPO_BASE/.cm"
 TARGET_FILE="$TARGET_DIR/project.json"
 
+if ! command -v jq &>/dev/null; then
+  echo "Error: jq is required to generate the manifest." >&2
+  echo "Install: apt install jq / brew install jq / winget install jqlang.jq" >&2
+  exit 1
+fi
+
 if [ -f "$TARGET_FILE" ]; then
   echo "project.json already exists at $TARGET_FILE"
   echo "Edit it directly or delete it to regenerate."
@@ -69,6 +75,10 @@ fi
 echo ""
 echo "GitHub project board (optional — press Enter to skip):"
 read -rp "  project number: " proj_num
+if [ -n "$proj_num" ] && ! [[ "$proj_num" =~ ^[0-9]+$ ]]; then
+  echo "Error: project number must be a positive integer." >&2
+  exit 1
+fi
 
 mkdir -p "$TARGET_DIR"
 

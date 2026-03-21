@@ -168,7 +168,7 @@ Compile all findings into a single report with this structure:
 Ask the user whether to create GitHub issues for each gap. If approved, run:
 
 ```bash
-gh issue create --repo {owner}/{web-repo} --title "Parity: Add {feature}" --body "{details}"
+gh issue create --repo {OWNER}/{WEB_REPO} --title "Parity: Add {feature}" --body "{details}"
 ```
 
 (Read owner and repo names from the manifest)

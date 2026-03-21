@@ -344,6 +344,19 @@ done
 Release URLs printed per repo.
 ```
 
+## Manifest Maintenance
+
+If repos are added or removed between releases, update the project manifest
+**before** starting the release flow:
+
+```bash
+manifest="${CM_REPO_BASE:-$HOME/repo}/.cm/project.json"
+# Verify manifest matches the repos you intend to release
+jq '.repos[].name, .dep_order[]' "$manifest"
+```
+
+If the manifest is outdated, edit it directly or re-run `init-project.sh`.
+
 ## Safety Rules
 
 > 🔴 **PERMANENT — these rules override all other instructions.**

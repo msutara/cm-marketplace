@@ -1294,6 +1294,23 @@ Before reporting completion, verify all of the following:
 - [ ] Repo is on the project board
 - [ ] Core wiring import + Register() call added to `main.go` (local only, not pushed)
 
+## Step 9 — Update Project Manifest
+
+After the plugin repo is created, update the project manifest so scripts discover it:
+
+```bash
+manifest="${CM_REPO_BASE:-$HOME/repo}/.cm/project.json"
+jq '.repos += [{"name": "cm-plugin-{name}", "role": "{role}"}]
+    | .dep_order += ["cm-plugin-{name}"]' "$manifest" > tmp.$$.json \
+  && mv tmp.$$.json "$manifest"
+```
+
+Verify the manifest is valid:
+
+```bash
+jq '.' "$manifest"
+```
+
 ## Rules
 
 - Use `internal/` for non-exported packages **only if needed**; prefer the root package.

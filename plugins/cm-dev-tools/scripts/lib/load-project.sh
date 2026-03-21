@@ -37,11 +37,18 @@ if [ -z "$OWNER" ]; then
   exit 1
 fi
 
-mapfile -t REPOS < <(jq -r '.repos[].name' "$_PROJECT_JSON")
-if [ ${#REPOS[@]} -eq 0 ]; then
-  echo "Error: 'repos' array is empty in $_PROJECT_JSON" >&2
+# Validate repos: non-empty array with every entry having a non-empty .name
+if ! jq -e '
+  .repos
+  and (.repos | type == "array")
+  and (.repos | length > 0)
+  and all(.repos[]; (.name | type == "string" and . != ""))
+' "$_PROJECT_JSON" >/dev/null; then
+  echo "Error: 'repos' must be a non-empty array with each entry having a non-empty 'name' in $_PROJECT_JSON" >&2
   exit 1
 fi
+
+mapfile -t REPOS < <(jq -r '.repos[].name' "$_PROJECT_JSON")
 
 REFERENCE_REPO=$(jq -r '.reference_repo // .repos[0].name' "$_PROJECT_JSON")
 
@@ -58,10 +65,16 @@ STATUS_FIELD_ID=""
 declare -A STATUS_OPTIONS 2>/dev/null || true
 
 if jq -e '.project_board' "$_PROJECT_JSON" &>/dev/null; then
-  PROJECT_NUMBER=$(jq -r '.project_board.number' "$_PROJECT_JSON")
-  PROJECT_ID=$(jq -r '.project_board.id' "$_PROJECT_JSON")
-  STATUS_FIELD_ID=$(jq -r '.project_board.status_field_id' "$_PROJECT_JSON")
-  while IFS='=' read -r key val; do
-    STATUS_OPTIONS["$key"]="$val"
-  done < <(jq -r '.project_board.statuses | to_entries[] | "\(.key)=\(.value)"' "$_PROJECT_JSON")
+  PROJECT_NUMBER=$(jq -r '.project_board.number // empty' "$_PROJECT_JSON")
+  PROJECT_ID=$(jq -r '.project_board.id // empty' "$_PROJECT_JSON")
+  STATUS_FIELD_ID=$(jq -r '.project_board.status_field_id // empty' "$_PROJECT_JSON")
+  if [ -z "$PROJECT_NUMBER" ] || [ -z "$PROJECT_ID" ] || [ -z "$STATUS_FIELD_ID" ]; then
+    echo "Error: When 'project_board' is defined, 'number', 'id', and 'status_field_id' must all be set in $_PROJECT_JSON" >&2
+    exit 1
+  fi
+  if jq -e '.project_board.statuses' "$_PROJECT_JSON" &>/dev/null; then
+    while IFS='=' read -r key val; do
+      STATUS_OPTIONS["$key"]="$val"
+    done < <(jq -r '.project_board.statuses | to_entries[] | "\(.key)=\(.value)"' "$_PROJECT_JSON")
+  fi
 fi
