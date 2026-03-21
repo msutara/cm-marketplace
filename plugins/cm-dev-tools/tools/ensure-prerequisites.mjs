@@ -99,7 +99,7 @@ function tryExec(cmd, args) {
   try {
     const stdout = execFileSync(cmd, args, {
       stdio: ["pipe", "pipe", "pipe"],
-      shell: true, // required on Windows for .cmd wrappers and PATH resolution
+      shell: isWindows, // needed on Windows for .cmd wrappers and PATH resolution
       timeout: 10_000,
     })
       .toString()

@@ -58,13 +58,14 @@ claude plugin install cm-dev-tools@cm-marketplace
 
 ### For this plugin's scripts and skills
 
+- **Node.js 20+** — required for repo tooling (npm lint scripts) and the `ensure-prerequisites.mjs` checker
 - **bash 4+** — required for all manifest-driven scripts (associative arrays)
 - **jq** — JSON processing (required by all manifest-driven scripts)
 - **gh CLI** — PR and project board operations
 - **git** — required by all scripts
 - **shellcheck** — for CI shell linting
 
-Run `node plugins/cm-dev-tools/tools/ensure-prerequisites.mjs` to check all at once.
+From the repository root, run `node plugins/cm-dev-tools/tools/ensure-prerequisites.mjs` to check and install all at once.
 
 ### For target CM repos (used by skills at runtime)
 
