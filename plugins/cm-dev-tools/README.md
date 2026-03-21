@@ -54,12 +54,19 @@ claude plugin marketplace add msutara/cm-marketplace
 claude plugin install cm-dev-tools@cm-marketplace
 ```
 
-## Prerequisites (for target CM repos)
+## Prerequisites
+
+### For this plugin's scripts and skills
+
+- **bash 4+** — required for all manifest-driven scripts (associative arrays)
+- **jq** — JSON processing (required by all manifest-driven scripts)
+- **gh CLI** — PR and project board operations
+- **git** — required by all scripts
+- **shellcheck** — for CI shell linting
+
+Run `node plugins/cm-dev-tools/tools/ensure-prerequisites.mjs` to check all at once.
+
+### For target CM repos (used by skills at runtime)
 
 - **Go 1.24+** — build/test/lint
 - **golangci-lint v2** — Go linting
-- **gh CLI** — PR and project board operations
-- **jq** — JSON processing (required by all manifest-driven scripts)
-- **bash 4+** — required for all manifest-driven scripts (associative arrays)
-
-Run `node plugins/cm-dev-tools/tools/ensure-prerequisites.mjs` to check all at once.

@@ -65,6 +65,10 @@ function meetsMinimum(actual, min) {
 /**
  * Run a command and return its output or a structured error.
  *
+ * With `shell: true` (needed on Windows for .cmd wrappers), a missing command
+ * does not throw ENOENT. Instead: Unix sh exits 127, Windows cmd exits 1 with
+ * "not recognized" in stderr. We detect all three patterns.
+ *
  * @param {string} cmd
  * @param {string[]} args
  * @returns {{ ok: true, stdout: string } | { ok: false, reason: "not_found" | "timeout" | "exec_error" }}
@@ -82,6 +86,12 @@ function tryExec(cmd, args) {
   } catch (err) {
     if (err.code === "ETIMEDOUT") return { ok: false, reason: "timeout" };
     if (err.code === "ENOENT") return { ok: false, reason: "not_found" };
+    // shell: true → missing command exits 127 (Unix sh) or 1 (Windows cmd)
+    if (err.status === 127) return { ok: false, reason: "not_found" };
+    const stderr = err.stderr?.toString() ?? "";
+    if (/not recognized|not found|command not found/i.test(stderr)) {
+      return { ok: false, reason: "not_found" };
+    }
     return { ok: false, reason: "exec_error" };
   }
 }

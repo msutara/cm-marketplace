@@ -57,4 +57,4 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Biome lint and format
-        run: npx @biomejs/biome check plugins/
+        run: npm run lint:js
