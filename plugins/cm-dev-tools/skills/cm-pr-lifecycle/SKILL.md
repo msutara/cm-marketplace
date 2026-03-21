@@ -4,7 +4,7 @@ description: >
   Full PR lifecycle management for the Config Manager project. Orchestrates the
   entire flow from local validation through fleet review, commit, push, PR
   creation, project board updates, CI monitoring, comment triage, and merge.
-  Enforces the strict cm development workflow across all 5 Go repos with
+  Enforces the strict cm development workflow across all CM Go repos with
   mandatory safety gates at every irreversible step.
   USE FOR: create pr, submit pr, pr workflow, push and pr, cm pr, full pr cycle,
   run pr workflow, pr lifecycle, submit changes.
@@ -20,25 +20,26 @@ before every irreversible action.
 
 ## Project Context
 
-### Repos
+Read project context from `.cm/project.json` if available. Discovery order:
+`$CM_REPO_BASE` → cwd → parent directory → `$HOME/repo`. If no manifest is found,
+ask the user for the required values before proceeding.
 
-| # | Repo | Path | Owner |
-| --- | --- | --- | --- |
-| 1 | config-manager-core | `$CM_REPO_BASE/config-manager-core` | msutara |
-| 2 | cm-plugin-network | `$CM_REPO_BASE/cm-plugin-network` | msutara |
-| 3 | cm-plugin-update | `$CM_REPO_BASE/cm-plugin-update` | msutara |
-| 4 | config-manager-tui | `$CM_REPO_BASE/config-manager-tui` | msutara |
-| 5 | config-manager-web | `$CM_REPO_BASE/config-manager-web` | msutara |
+```bash
+# Discover project manifest: $CM_REPO_BASE → cwd → parent → $HOME/repo (optional — ask user for context if unavailable)
+_cm="${CM_REPO_BASE:+$CM_REPO_BASE/.cm/project.json}"
+[ -f "${_cm:-}" ] || _cm=".cm/project.json"          # cwd
+[ -f "$_cm" ] || _cm="../.cm/project.json"            # parent dir
+[ -f "$_cm" ] || _cm="$HOME/repo/.cm/project.json"   # fallback
+if [ -f "$_cm" ]; then
+  jq '.' "$_cm"
+else
+  echo "No manifest found — ask the user for owner, repo names, and other context."
+fi
+```
 
-### GitHub Project
-
-| Key | Value |
-| --- | --- |
-| Project ID | `PVT_kwHOAgHix84BPSxN` |
-| Status field ID | `PVTSSF_lAHOAgHix84BPSxNzg9vkrk` |
-| In-progress option | `47fc9ee4` |
-| Review option | `e70217cf` |
-| Done option | `98236657` |
+This provides: repo names, owner, paths (sibling repos under the manifest's parent directory), dependency order,
+reference repo, and project board IDs (project ID, field IDs, status option IDs).
+All values below are derived from the manifest.
 
 ---
 
@@ -46,7 +47,7 @@ before every irreversible action.
 
 | Parameter | Required | Source | Description |
 | --- | --- | --- | --- |
-| Repo | Yes | Auto-detect from `cwd` | One of the 5 cm repos |
+| Repo | Yes | Auto-detect from `cwd` | Any CM repo listed in the manifest |
 | Branch name | No | Auto-generate from title | Feature branch (never `main`) |
 | PR title | Yes | User-provided | Conventional commit style |
 | Issue number | No | User-provided | GitHub issue to close |
@@ -92,7 +93,7 @@ markdownlint-cli2 "**/*.md" "#node_modules"
 
 Invoke the `cm-fleet-review` skill (or replicate its protocol):
 
-1. Launch **10 parallel review agents** with diverse models
+1. Launch **11 parallel review agents** with diverse models
 2. Each agent reviews with its assigned perspective and mandatory checklist
 3. Collect all findings
 4. Filter to confidence **≥ 80**
@@ -190,7 +191,7 @@ Closes #{issue_number}
 - ✅ `go build ./...` — pass
 - ✅ `go test ./...` — pass
 - ✅ `golangci-lint run` — pass
-- ✅ Fleet review (10 agents) — clean
+- ✅ Fleet review (11 agents) — clean
 
 ## Test Coverage
 
@@ -202,23 +203,14 @@ Closes #{issue_number}
 Add the PR to the GitHub project and set status to **Review**:
 
 ```bash
-gh project item-add 1 --owner msutara --url {PR_URL}
+gh project item-add {PROJECT_NUMBER} --owner {OWNER} --url {PR_URL}
 ```
 
-Then update the item status to Review using the GraphQL API:
+Then update the item status to the review status defined in `.cm/project.json`
+(from the marketplace repo root):
 
 ```bash
-gh api graphql -f query='
-  mutation {
-    updateProjectV2ItemFieldValue(
-      input: {
-        projectId: "PVT_kwHOAgHix84BPSxN"
-        itemId: "{ITEM_ID}"
-        fieldId: "PVTSSF_lAHOAgHix84BPSxNzg9vkrk"
-        value: { singleSelectOptionId: "e70217cf" }
-      }
-    ) { projectV2Item { id } }
-  }'
+./plugins/cm-dev-tools/scripts/project-board.sh --url {PR_URL} --status {REVIEW_STATUS}
 ```
 
 ### Phase 9 — Monitor CI
@@ -297,7 +289,7 @@ git status
 | Phase | Gate | Reversible |
 | --- | --- | --- |
 | 1. Local Validation | build + test + lint must pass | ✅ Yes |
-| 2. Fleet Review | 10-agent review, filter ≥ 80 confidence | ✅ Yes |
+| 2. Fleet Review | 11-agent review, filter ≥ 80 confidence | ✅ Yes |
 | 3. Fleet Fix Loop | iterate until clean | ✅ Yes |
 | 4. Stage and Review | **user approval required** | ✅ Yes |
 | 5. Commit | conventional commit + trailer | ⚠️ Amend only |

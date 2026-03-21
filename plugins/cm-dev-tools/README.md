@@ -10,23 +10,24 @@ GitHub Copilot CLI and Claude Code.
 | Skill | What It Does |
 | --- | --- |
 | **scaffold-plugin** | Scaffolds a new CM plugin repo with all boilerplate |
-| **cm-fleet-review** | 10-agent multi-model code review |
+| **cm-fleet-review** | 11-agent multi-model code review |
 | **cm-pr-lifecycle** | Full PR cycle: build → fleet → fix → commit → push → PR → merge |
 | **cm-release** | Cross-repo release with validation, tagging, and release notes |
 | **cm-parity-check** | TUI ↔ Web feature and security parity verification |
 | **cm-pr-comments** | PR comment triage, risk assessment, and thread resolution |
 | **cm-docs-sync** | Cross-repo documentation and config consistency audit |
 
-### Bash Scripts (6)
+### Bash Scripts (7)
 
 | Script | Usage |
 | --- | --- |
 | `validate-repo.sh` | Build + test + lint a single repo |
 | `validate-all.sh` | Validate all repos in sequence |
-| `repo-status.sh` | Git branch, clean state, last tag for all repos |
-| `tag-all.sh` | Tag all repos in dependency order |
-| `sync-deps.sh` | Bump go.mod dependency across downstream repos |
-| `project-board.sh` | Add items and update status on GitHub project board |
+| `repo-status.sh` | Git branch, clean state, last tag for manifest repos |
+| `tag-all.sh` | Tag manifest repos in manifest `dep_order` |
+| `sync-deps.sh` | Bump go.mod dependency across manifest downstream repos |
+| `project-board.sh` | Add items and update status on manifest-configured project board |
+| `init-project.sh` | Interactive `.cm/project.json` manifest generator |
 
 ### Custom Agents (2)
 
@@ -52,5 +53,5 @@ claude plugin install cm-dev-tools@cm-marketplace
 - **Go 1.24+** — build/test/lint
 - **golangci-lint v2** — Go linting
 - **gh CLI** — PR and project board operations
-- **jq** — JSON processing in project-board script
-- **bash 4+** — required for project-board script (associative arrays)
+- **jq** — JSON processing (required by all manifest-driven scripts)
+- **bash 4+** — required for all manifest-driven scripts (associative arrays)

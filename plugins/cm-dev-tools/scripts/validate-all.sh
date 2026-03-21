@@ -1,18 +1,12 @@
 #!/usr/bin/env bash
-# validate-all.sh — Validate all 5 CM repos in sequence
+# validate-all.sh — Validate all CM repos defined in the project manifest
 # Usage: ./validate-all.sh [--skip-lint] [--skip-markdown]
 # Intentionally omit -e: script must continue through repo failures to accumulate results
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-REPO_BASE="${CM_REPO_BASE:-$HOME/repo}"
-REPOS=(
-  config-manager-core
-  cm-plugin-network
-  cm-plugin-update
-  config-manager-tui
-  config-manager-web
-)
+# shellcheck source=lib/load-project.sh
+source "$SCRIPT_DIR/lib/load-project.sh" || exit 1
 ALL_PASSED=0
 SUMMARIES=()
 

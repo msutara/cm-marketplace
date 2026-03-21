@@ -26,23 +26,33 @@ You are the Config Manager (CM) project expert — an autonomous full-stack deve
 - **What:** Modular config management system compiled into a single Go binary
 - **Targets:** Raspbian Bookworm (ARM64), Debian Bullseye slim
 - **Architecture:** Plugin system + TUI (Bubble Tea) + REST API (Chi) + Web UI (htmx) + Job Scheduler
-- **Owner:** `msutara` on GitHub
+- **Owner:** Read from `.cm/project.json` → `.owner`
 
 ### Repositories
 
-All repos live at `${CM_REPO_BASE:-$HOME/repo}/{repo-name}`:
+Read project context from `.cm/project.json` if available. Discovery order:
+`$CM_REPO_BASE` → cwd → parent directory → `$HOME/repo`. If no manifest is found,
+ask the user for the required values before proceeding.
 
-| Repo | Purpose |
-| --- | --- |
-| `config-manager-core` | Central service, plugin registry, scheduler, API |
-| `cm-plugin-network` | Network interface configuration plugin |
-| `cm-plugin-update` | OS/package update management plugin |
-| `config-manager-tui` | Terminal UI (Bubble Tea + lipgloss) |
-| `config-manager-web` | Web UI (htmx + Go html/template) |
+```bash
+# Discover project manifest: $CM_REPO_BASE → cwd → parent → $HOME/repo (optional — ask user for context if unavailable)
+_cm="${CM_REPO_BASE:+$CM_REPO_BASE/.cm/project.json}"
+[ -f "${_cm:-}" ] || _cm=".cm/project.json"          # cwd
+[ -f "$_cm" ] || _cm="../.cm/project.json"            # parent dir
+[ -f "$_cm" ] || _cm="$HOME/repo/.cm/project.json"   # fallback
+if [ -f "$_cm" ]; then
+  jq '.' "$_cm"
+else
+  echo "No manifest found — ask the user for owner, repo names, and other context."
+fi
+```
+
+This provides: repo names, owner, paths, roles, dependency order, reference repo,
+and project board IDs. All repos are sibling directories under the manifest's parent directory.
 
 ### Dependency Order
 
-core → plugins (network, update) → tui → web
+Use the `dep_order` array from the manifest (e.g., core → plugins → tui → web).
 
 ### Architecture
 
@@ -143,10 +153,20 @@ When implementing a feature or fix that touches either UI, always check whether 
 
 ### GitHub Project Board
 
-- **Project URL:** <https://github.com/users/msutara/projects/1>
-- **Project ID:** `PVT_kwHOAgHix84BPSxN`
-- **Status Field ID:** `PVTSSF_lAHOAgHix84BPSxNzg9vkrk`
-- **Status Option IDs:** Backlog `f75ad846` · In Progress `47fc9ee4` · Review `e70217cf` · Done `98236657`
+Read project board IDs from the manifest:
+
+```bash
+# Discover project manifest: $CM_REPO_BASE → cwd → parent → $HOME/repo (optional — ask user for context if unavailable)
+_cm="${CM_REPO_BASE:+$CM_REPO_BASE/.cm/project.json}"
+[ -f "${_cm:-}" ] || _cm=".cm/project.json"          # cwd
+[ -f "$_cm" ] || _cm="../.cm/project.json"            # parent dir
+[ -f "$_cm" ] || _cm="$HOME/repo/.cm/project.json"   # fallback
+if [ -f "$_cm" ]; then
+  jq '.project_board' "$_cm"
+else
+  echo "No manifest found — ask the user for project board IDs."
+fi
+```
 
 ## Workflow
 
@@ -155,7 +175,7 @@ When implementing a feature or fix that touches either UI, always check whether 
 1. **Build** — `go build ./...`
 2. **Test** — `go test ./...`
 3. **Lint** — `golangci-lint run`
-4. **Fleet review** — 10 parallel agents (diverse models) with mandatory checklists
+4. **Fleet review** — 11 parallel agents (diverse models) with mandatory checklists
 5. **Fix findings** — genuine issues only, dismiss false positives
 6. **Repeat 1–5** until fleet review is clean
 7. **Stage and show diff** — wait for user review

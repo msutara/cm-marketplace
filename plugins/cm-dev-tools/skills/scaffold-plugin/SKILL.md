@@ -17,10 +17,25 @@ and the plugin registered in the core binary.
 
 ## Project Context
 
-| Key | Value |
-| --- | --- |
-| Reference repo | `config-manager-core` (`$CM_REPO_BASE/config-manager-core`, owner: msutara) |
-| GitHub Project ID | `PVT_kwHOAgHix84BPSxN` |
+Read project context from `.cm/project.json` if available. Discovery order:
+`$CM_REPO_BASE` → cwd → parent directory → `$HOME/repo`. If no manifest is found,
+ask the user for the required values before proceeding.
+
+```bash
+# Discover project manifest: $CM_REPO_BASE → cwd → parent → $HOME/repo (optional — ask user for context if unavailable)
+_cm="${CM_REPO_BASE:+$CM_REPO_BASE/.cm/project.json}"
+[ -f "${_cm:-}" ] || _cm=".cm/project.json"          # cwd
+[ -f "$_cm" ] || _cm="../.cm/project.json"            # parent dir
+[ -f "$_cm" ] || _cm="$HOME/repo/.cm/project.json"   # fallback
+if [ -f "$_cm" ]; then
+  jq '.' "$_cm"
+else
+  echo "No manifest found — ask the user for owner, repo names, and other context."
+fi
+```
+
+Use `reference_repo` for the reference repository and `owner` for the GitHub owner.
+Use `project_board.id` for the project board ID.
 
 ## Step 0 — Gather Input
 
@@ -40,22 +55,22 @@ Derive from these:
   if the name contains hyphens (Go packages cannot have hyphens). For single-word
   names like `firewall`, the package name is `firewall`.
 - **Repo name** — `cm-plugin-{name}`
-- **Module path** — `github.com/msutara/cm-plugin-{name}`
+- **Module path** — `github.com/{OWNER}/cm-plugin-{name}`
 - **Constructor** — `New{Name}Plugin()` (PascalCase)
 - **Struct** — `{Name}Plugin` (PascalCase)
 
 ## Step 1 — Create the GitHub Repository
 
 ```bash
-gh repo create msutara/cm-plugin-{name} --public --clone --description "{description}"
-cd cm-plugin-{name}
+gh repo create {OWNER}/cm-plugin-{name} --public --clone --description "{description}"
+cd cm-plugin-{name} || { echo "Failed to cd into cm-plugin-{name}"; exit 1; }
 git checkout -b phase1/skeleton-and-specs
 ```
 
 Verify the repo was created:
 
 ```bash
-gh repo view msutara/cm-plugin-{name} --json name,url
+gh repo view {OWNER}/cm-plugin-{name} --json name,url
 ```
 
 ## Step 2 — Generate the Directory Tree
@@ -72,6 +87,7 @@ cm-plugin-{name}/
 ├── plugin_test.go
 ├── service_test.go
 ├── routes_test.go
+├── nfpm.yaml
 ├── specs/
 │   ├── SPEC.md
 │   └── ARCHITECTURE.md
@@ -104,13 +120,13 @@ Create each file using the templates below. Replace every `{name}`, `{Name}`,
 ### 3.1 — go.mod
 
 ```go
-module github.com/msutara/cm-plugin-{name}
+module github.com/{OWNER}/cm-plugin-{name}
 
 go 1.24.0
 
 require github.com/go-chi/chi/v5 v5.2.5
 
-require github.com/msutara/config-manager-core v0.4.3
+require github.com/{OWNER}/config-manager-core v0.4.3
 ```
 
 After writing the file, run:
@@ -129,7 +145,7 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/msutara/config-manager-core/plugin"
+	"github.com/{OWNER}/config-manager-core/plugin"
 )
 
 // Compile-time interface checks.
@@ -349,7 +365,7 @@ package {pkg}
 import (
 	"testing"
 
-	"github.com/msutara/config-manager-core/plugin"
+	"github.com/{OWNER}/config-manager-core/plugin"
 )
 
 func TestPluginInterface(t *testing.T) {
@@ -665,7 +681,23 @@ formatters:
 }
 ```
 
-### 3.12 — .gitignore
+### 3.12 — nfpm.yaml
+
+This file configures the `.deb` package built by the release workflow.
+
+```yaml
+name: cm-plugin-{name}
+arch: "${ARCH}"
+platform: linux
+version: "${VERSION}"
+maintainer: "{OWNER}"
+description: "{description}"
+contents:
+  - src: cm-plugin-{name}
+    dst: /usr/local/bin/cm-plugin-{name}
+```
+
+### 3.13 — .gitignore
 
 ```txt
 # Go binaries
@@ -688,7 +720,7 @@ go.work
 go.work.sum
 ```
 
-### 3.13 — dependabot.yml
+### 3.14 — dependabot.yml
 
 Place this at `.github/dependabot.yml`.
 
@@ -707,12 +739,12 @@ updates:
     open-pull-requests-limit: 3
 ```
 
-### 3.14 — LICENSE (MIT)
+### 3.15 — LICENSE (MIT)
 
 ```txt
 MIT License
 
-Copyright (c) {YEAR} msutara
+Copyright (c) {YEAR} {OWNER}
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -735,13 +767,13 @@ SOFTWARE.
 
 Replace `{YEAR}` with the current year at generation time.
 
-### 3.15 — README.md
+### 3.16 — README.md
 
 ````markdown
 # cm-plugin-{name}
 
 {description} plugin for
-[Config Manager](https://github.com/msutara/config-manager-core). Designed for
+[Config Manager](https://github.com/{OWNER}/config-manager-core). Designed for
 headless Debian-based nodes (Raspbian Bookworm ARM64, Debian Bullseye slim).
 
 ## Features
@@ -779,7 +811,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 See [LICENSE](LICENSE) for details.
 ````
 
-### 3.16 — CONTRIBUTING.md
+### 3.17 — CONTRIBUTING.md
 
 ```markdown
 # Contributing
@@ -815,11 +847,11 @@ Thank you for your interest in contributing to the Config Manager project!
 
 This project is split across multiple repositories:
 
-- [config-manager-core](https://github.com/msutara/config-manager-core) —
+- [config-manager-core](https://github.com/{OWNER}/config-manager-core) —
   core framework, plugin system, API server
-- [cm-plugin-{name}](https://github.com/msutara/cm-plugin-{name}) —
+- [cm-plugin-{name}](https://github.com/{OWNER}/cm-plugin-{name}) —
   {description}
-- [config-manager-tui](https://github.com/msutara/config-manager-tui) —
+- [config-manager-tui](https://github.com/{OWNER}/config-manager-tui) —
   terminal UI (Bubble Tea)
 
 ## Code of Conduct
@@ -827,7 +859,7 @@ This project is split across multiple repositories:
 Be respectful and constructive. We are all here to learn and build together.
 ```
 
-### 3.17 — .github/copilot-instructions.md
+### 3.18 — .github/copilot-instructions.md
 
 ````markdown
 # Copilot Instructions
@@ -854,7 +886,7 @@ The plugin is compiled into the core binary via a normal import in
 `cmd/cm/main.go`:
 
 ```go
-import {pkg} "github.com/msutara/cm-plugin-{name}"
+import {pkg} "github.com/{OWNER}/cm-plugin-{name}"
 
 plugin.Register({pkg}.New{Name}Plugin())
 ```
@@ -885,7 +917,7 @@ Routes are mounted under `/api/v1/plugins/{name}`.
 - Never push directly to main — always use feature branches and PRs
 ````
 
-### 3.18 — .github/PULL_REQUEST_TEMPLATE.md
+### 3.19 — .github/PULL_REQUEST_TEMPLATE.md
 
 ```markdown
 # Pull Request
@@ -917,7 +949,7 @@ Describe how this was tested.
 - [ ] No secrets or credentials committed
 ```
 
-### 3.19 — .github/ISSUE_TEMPLATE/bug_report.md
+### 3.20 — .github/ISSUE_TEMPLATE/bug_report.md
 
 ```markdown
 ---
@@ -955,7 +987,7 @@ A clear and concise description of what you expected to happen.
 Add any other context about the problem here, including logs or screenshots.
 ```
 
-### 3.20 — .github/ISSUE_TEMPLATE/feature_request.md
+### 3.21 — .github/ISSUE_TEMPLATE/feature_request.md
 
 ```markdown
 ---
@@ -983,17 +1015,17 @@ A clear and concise description of any alternative solutions or features you've 
 Add any other context or screenshots about the feature request here.
 ```
 
-### 3.21 — .github/ISSUE_TEMPLATE/config.yml
+### 3.22 — .github/ISSUE_TEMPLATE/config.yml
 
 ```yaml
 blank_issues_enabled: true
 contact_links:
   - name: Documentation
-    url: https://github.com/msutara/cm-plugin-{name}#readme
+    url: https://github.com/{OWNER}/cm-plugin-{name}#readme
     about: Check the README for setup and usage instructions
 ```
 
-### 3.22 — specs/SPEC.md
+### 3.23 — specs/SPEC.md
 
 ````markdown
 # {Name} Plugin Specification
@@ -1077,7 +1109,7 @@ The plugin exposes configuration via the `Configurable` interface.
 - Service methods that mutate state are guarded by a `sync.Mutex`.
 ````
 
-### 3.23 — specs/ARCHITECTURE.md
+### 3.24 — specs/ARCHITECTURE.md
 
 ````markdown
 # {Name} Plugin Architecture
@@ -1119,7 +1151,7 @@ HTTP Request
   `sync.RWMutex` in Plugin for config access.
 ````
 
-### 3.24 — docs/USAGE.md
+### 3.25 — docs/USAGE.md
 
 ````markdown
 # Usage
@@ -1135,7 +1167,7 @@ The plugin is integrated into Config Manager by importing it and registering it
 with the core's plugin registry:
 
 ```go
-import {pkg} "github.com/msutara/cm-plugin-{name}"
+import {pkg} "github.com/{OWNER}/cm-plugin-{name}"
 
 plugin.Register({pkg}.New{Name}Plugin())
 ```
@@ -1181,7 +1213,7 @@ The plugin exposes configuration via `GET /config`:
 ## Step 4 — Run `go mod tidy` and Verify Build
 
 ```bash
-cd cm-plugin-{name}
+cd cm-plugin-{name} || { echo "Failed to cd into cm-plugin-{name}"; exit 1; }
 go mod tidy
 go build ./...
 go test ./...
@@ -1192,12 +1224,12 @@ All four commands must pass. Fix any issues before continuing.
 
 ## Step 5 — Wire Into Core
 
-Edit `$CM_REPO_BASE/config-manager-core/cmd/cm/main.go`:
+Edit `config-manager-core/cmd/cm/main.go` (sibling repo under the manifest's parent directory):
 
 1. Add the import (alphabetical order among plugin imports):
 
    ```go
-   {pkg} "github.com/msutara/cm-plugin-{name}"
+   {pkg} "github.com/{OWNER}/cm-plugin-{name}"
    ```
 
 2. Add the registration call (in the same block as other `plugin.Register` calls):
@@ -1209,8 +1241,20 @@ Edit `$CM_REPO_BASE/config-manager-core/cmd/cm/main.go`:
 3. Run `go mod tidy` in `config-manager-core` to pull the new dependency:
 
    ```bash
-   cd "${CM_REPO_BASE:-$HOME/repo}/config-manager-core"
-   go get github.com/msutara/cm-plugin-{name}@latest
+   # Discover project manifest: $CM_REPO_BASE → cwd → parent → $HOME/repo (optional — ask user for context if unavailable)
+   _cm="${CM_REPO_BASE:+$CM_REPO_BASE/.cm/project.json}"
+   [ -f "${_cm:-}" ] || _cm=".cm/project.json"          # cwd
+   [ -f "$_cm" ] || _cm="../.cm/project.json"            # parent dir
+   [ -f "$_cm" ] || _cm="$HOME/repo/.cm/project.json"   # fallback
+   if [ -f "$_cm" ]; then
+     _base="$(cd "$(dirname "$_cm")/.." && pwd)"
+     _ref="$(jq -r '.reference_repo' "$_cm")"
+     cd "${_base}/${_ref}" || { echo "Error: failed to cd into ${_ref}" >&2; exit 1; }
+   else
+     echo "No manifest found — cd to the reference repo manually before continuing." >&2
+     exit 1
+   fi
+   go get github.com/{OWNER}/cm-plugin-{name}@latest
    go mod tidy
    go build ./...
    go test ./...
@@ -1221,14 +1265,17 @@ Edit `$CM_REPO_BASE/config-manager-core/cmd/cm/main.go`:
 
 ## Step 6 — Add to GitHub Project Board
 
+Link the new repository to the project board (note: `item-add` only accepts
+issues/PRs, so use `project link` for repositories):
+
 ```bash
-gh project item-add 1 --owner msutara --url "https://github.com/msutara/cm-plugin-{name}"
+gh project link {PROJECT_NUMBER} --owner {OWNER} --repo {OWNER}/cm-plugin-{name}
 ```
 
 ## Step 7 — Commit and Create Initial PR
 
 ```bash
-cd cm-plugin-{name}
+cd cm-plugin-{name} || { echo "Failed to cd into cm-plugin-{name}"; exit 1; }
 git add -A
 git commit -m "feat: scaffold {name} plugin skeleton
 
@@ -1249,7 +1296,7 @@ Create the PR:
 
 ```bash
 gh pr create \
-  --repo msutara/cm-plugin-{name} \
+  --repo {OWNER}/cm-plugin-{name} \
   --base main \
   --head phase1/skeleton-and-specs \
   --title "feat: scaffold {name} plugin skeleton and specs" \
@@ -1280,7 +1327,7 @@ Initial plugin scaffold for **cm-plugin-{name}** — {description}.
 
 Before reporting completion, verify all of the following:
 
-- [ ] GitHub repo `msutara/cm-plugin-{name}` exists and is public
+- [ ] GitHub repo `{OWNER}/cm-plugin-{name}` exists and is public
 - [ ] All files from the tree in Step 2 are present
 - [ ] `go build ./...` succeeds
 - [ ] `go test ./...` passes
@@ -1289,6 +1336,37 @@ Before reporting completion, verify all of the following:
 - [ ] PR exists on branch `phase1/skeleton-and-specs`
 - [ ] Repo is on the project board
 - [ ] Core wiring import + Register() call added to `main.go` (local only, not pushed)
+
+## Step 9 — Update Project Manifest
+
+After the plugin repo is created, update the project manifest so scripts discover it:
+
+```bash
+# Discover project manifest: $CM_REPO_BASE → cwd → parent → $HOME/repo (optional — ask user for context if unavailable)
+_cm="${CM_REPO_BASE:+$CM_REPO_BASE/.cm/project.json}"
+[ -f "${_cm:-}" ] || _cm=".cm/project.json"          # cwd
+[ -f "$_cm" ] || _cm="../.cm/project.json"            # parent dir
+[ -f "$_cm" ] || _cm="$HOME/repo/.cm/project.json"   # fallback
+if [ -f "$_cm" ]; then
+  # Only add if not already present
+  if ! jq -e '.repos[] | select(.name == "cm-plugin-{name}")' "$_cm" >/dev/null 2>&1; then
+    jq '.repos += [{"name": "cm-plugin-{name}", "role": "{role}"}]
+        | if .dep_order then .dep_order += ["cm-plugin-{name}"] else . end' "$_cm" \
+      > "$(dirname "$_cm")/project.tmp.$$.json" \
+      && mv "$(dirname "$_cm")/project.tmp.$$.json" "$_cm"
+  fi
+else
+  echo "No manifest found — create one with init-project.sh to register the new plugin." >&2
+fi
+```
+
+Verify the manifest is valid (if it exists):
+
+```bash
+if [ -f "$_cm" ]; then
+  jq '.' "$_cm"
+fi
+```
 
 ## Rules
 

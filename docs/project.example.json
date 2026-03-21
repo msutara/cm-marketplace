@@ -1,0 +1,29 @@
+{
+  "owner": "msutara",
+  "reference_repo": "config-manager-core",
+  "repos": [
+    { "name": "config-manager-core", "role": "central service" },
+    { "name": "cm-plugin-network", "role": "network config plugin" },
+    { "name": "cm-plugin-update", "role": "OS update plugin" },
+    { "name": "config-manager-tui", "role": "Bubble Tea TUI" },
+    { "name": "config-manager-web", "role": "htmx web UI" }
+  ],
+  "dep_order": [
+    "config-manager-core",
+    "cm-plugin-network",
+    "cm-plugin-update",
+    "config-manager-tui",
+    "config-manager-web"
+  ],
+  "project_board": {
+    "number": 1,
+    "id": "PVT_kwHOAgHix84BPSxN",
+    "status_field_id": "PVTSSF_lAHOAgHix84BPSxNzg9vkrk",
+    "statuses": {
+      "Backlog": "f75ad846",
+      "InProgress": "47fc9ee4",
+      "Review": "e70217cf",
+      "Done": "98236657"
+    }
+  }
+}

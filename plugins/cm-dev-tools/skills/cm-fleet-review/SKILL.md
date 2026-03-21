@@ -1,23 +1,23 @@
 ---
 name: cm-fleet-review
 description: >
-  10-agent multi-perspective code review fleet for the Config Manager project.
+  11-agent multi-perspective code review fleet for the Config Manager project.
   Launches parallel review agents with diverse AI models, each with a specific
   role and mandatory checklist. This is the core quality gate for cm.
-  USE FOR: fleet review, run fleet, multi-model review, 10 agent review,
+  USE FOR: fleet review, run fleet, multi-model review, 11 agent review,
   cm review, code review fleet, review changes, run code review,
   multi-perspective review, launch fleet.
 ---
 
 # CM Fleet Review
 
-Orchestrates a 10-agent parallel code review using diverse AI models, each with
+Orchestrates an 11-agent parallel code review using diverse AI models, each with
 a specific role and mandatory checklist. This is THE core quality gate for the
 Config Manager project.
 
 Every agent reviews the **full changed files** (not just diffs) to catch
 inconsistencies, stale comments, and cross-file issues. Model diversity across
-4 Claude + 5 GPT + 1 Gemini variants maximizes perspective coverage.
+4 Claude + 6 GPT + 1 Gemini variants maximizes perspective coverage.
 
 ---
 
@@ -42,6 +42,12 @@ inconsistencies, stale comments, and cross-file issues. Model diversity across
 | 8 | Test Quality | gpt-5.1-codex-max | Flaky patterns, httptest usage, error path testing, test isolation |
 | 9 | Lint/Consistency | claude-sonnet-4 | errcheck, nolint justifications, DRY violations, import consistency |
 | 10 | Template/Contract | gpt-5.1 | URL generation, type mismatches, error propagation, display consistency |
+
+### Group C — Platform Reviewer Simulation
+
+| # | Role | Model | Focus |
+| --- | --- | --- | --- |
+| 11 | GitHub Copilot Perspective | gpt-5.4 | Simulates GitHub's Copilot auto-reviewer. **Key behavior: Copilot checks if patterns fixed in the diff exist unfixed in other files** — this is its primary comment source. Also checks: unvalidated external inputs, missing existence guards, defensive coding gaps (unchecked return values, empty vars in paths, unquoted vars), inconsistent patterns across files, stale docs/comments/counts, regex consistency, UUOC, error output to stderr, path traversal via `.`/`..`. Every value from JSON/env/user input must be validated. Every file/dir access must be guarded. |
 
 ---
 
@@ -130,9 +136,53 @@ in its assigned checklist. Do not skip items.
 □ PR description: matches actual implementation
 ```
 
----
+### Agent 11 — GitHub Copilot Perspective
 
-## Prompt Template
+```text
+□ Fix propagation: for every pattern changed in the diff, check if the OLD
+  pattern exists UNFIXED in any other file. Copilot reviews full files and
+  cross-references what was fixed against what remains — this is its #1 source
+  of comments.
+□ Regex consistency: same input type must use same regex across all scripts
+  (e.g., repo names validated identically in load-project.sh, init-project.sh,
+  repo-status.sh)
+□ Path traversal: every input used as a path segment rejects literal "." and
+  ".." (dot-prefixed names like `.github` are valid)
+□ Error output: every error-path echo uses "Error:" prefix + >&2
+□ UUOC: no cat file | command — use $(<file) or direct argument
+□ Manifest snippets: identical 5-line cascade (header + 4 checks with inline comments) in every skill/agent
+□ Comment/wording: same pattern = same words across all files
+□ Stale docs: counts, descriptions, examples match actual implementation
+□ Unquoted $() assignments: must be VAR="$(...)" for space safety
+□ Hardcoded values: status names, repo names, owner names should be
+  manifest-driven or use placeholders
+□ Else branches: error messages to stderr, consistent wording, exit on required
+  paths
+□ Script paths in skills: repo-root-relative, not cwd-relative
+□ Usage/help text: hardcoded examples must match dynamic behavior. If a script
+  reads statuses from manifest, usage text must not list fixed statuses.
+□ Overly restrictive guards: validation must not block legitimate input. E.g.,
+  a ".." check must not reject repo paths like "../sibling-repo". Test guards
+  against real-world values.
+□ CI workflow safety: every cd in CI must be in a subshell or use || exit 1 to
+  propagate failures. Grep exit code 2 must not be silently swallowed.
+□ Action versions: actions/checkout, setup-go, markdownlint-cli2-action — must
+  be consistent across ci.yml, skills, and scaffold templates.
+□ Untrimmed user input: EVERY read -rp value must be trimmed before validation.
+  Whitespace-only input must be treated as empty.
+□ Error message vs regex mismatch: if validation uses ^[A-Za-z0-9]..., the
+  error message must describe that exact pattern, not a different one.
+□ Mutually exclusive args: if --url and --item-id cannot coexist, the script
+  must reject both being set — not silently prefer one.
+□ Tilde expansion: ~ does not expand inside quotes or variable assignment. If
+  user input may contain ~/path, handle expansion explicitly (e.g., substring
+  check for ~/ prefix and replace with $HOME).
+□ Manifest-missing exit: if a code path requires manifest data and the manifest
+  is absent, it must exit 1 or return error — never silently fall through or
+  continue with empty values.
+```
+
+---
 
 Each agent receives this prompt with its role, checklist, and file contents
 injected. The template MUST be used verbatim — do not paraphrase or abbreviate.
@@ -190,7 +240,7 @@ directory. Then collect the set of changed files.
 ### Step 2 — Determine iteration mode
 
 - **First iteration** (default, or explicitly requested): review FULL changed
-  files. All 10 agents run.
+  files. All 11 agents run.
 - **Targeted iteration** (after fixing findings from a previous run): review
   only the diff since the last commit. Only launch agents whose roles are
   relevant to the files/findings that changed.
@@ -199,7 +249,7 @@ Ask the user which mode to use if unclear. Default to first iteration.
 
 ### Step 3 — Launch agents
 
-Launch ALL 10 agents **in parallel** using the `task` tool with
+Launch ALL 11 agents **in parallel** using the `task` tool with
 `mode: "background"`. Each agent uses its assigned model via the `model`
 parameter.
 
@@ -214,6 +264,7 @@ Agent  7: task(agent_type="code-review", model="gpt-5.2-codex",        prompt=<t
 Agent  8: task(agent_type="code-review", model="gpt-5.1-codex-max",    prompt=<template with Test Quality role>)
 Agent  9: task(agent_type="code-review", model="claude-sonnet-4",      prompt=<template with Lint role>)
 Agent 10: task(agent_type="code-review", model="gpt-5.1",              prompt=<template with Template/Contract role>)
+Agent 11: task(agent_type="code-review", model="gpt-5.4",              prompt=<template with GitHub Copilot Perspective role>)
 ```
 
 ### Step 4 — Collect and triage
@@ -235,7 +286,7 @@ Output findings grouped by file, then by severity within each file.
 ## Fleet Review Results — {REPO} ({BRANCH})
 
 ### Summary
-- Agents reporting clean: X/10
+- Agents reporting clean: X/11
 - Total findings: Y (Z critical, W high, ...)
 - Files reviewed: N
 
@@ -275,16 +326,17 @@ Quick-reference table for programmatic agent launch.
 | 8 | test-quality | gpt-5.1-codex-max | Test Quality |
 | 9 | lint | claude-sonnet-4 | Lint/Consistency |
 | 10 | template-contract | gpt-5.1 | Template/Contract |
+| 11 | copilot-perspective | gpt-5.4 | GitHub Copilot Perspective |
 
 ---
 
 ## Model Diversity
 
-The fleet uses 10 distinct models across 3 providers to maximize perspective
+The fleet uses 11 distinct models across 3 providers to maximize perspective
 diversity and minimize shared blind spots:
 
 - **Claude** (4 agents): opus-4.6, sonnet-4.6, sonnet-4.5, sonnet-4
-- **GPT** (5 agents): 5.1-codex, 5.3-codex, 5.2-codex, 5.1-codex-max, 5.1
+- **GPT** (6 agents): 5.1-codex, 5.3-codex, 5.2-codex, 5.1-codex-max, 5.1, 5.4
 - **Gemini** (1 agent): 3-pro-preview
 
 No two agents in Group B share the same model.
@@ -295,17 +347,50 @@ No two agents in Group B share the same model.
 
 ```text
 ┌─────────────────────────────────────────┐
-│  1. Run fleet review (all 10 agents)    │
+│  1. Run fleet review (all 11 agents)    │
 │  2. Fix findings                        │
-│  3. Build + test                        │
-│  4. Run targeted fleet review           │
+│  3. PROPAGATE fixes repo-wide           │
+│  4. Build + test                        │
+│  5. Run targeted fleet review           │
 │     (only relevant agents, diff only)   │
-│  5. If findings remain → go to 2        │
-│  6. If clean → commit + push            │
+│  6. If findings remain → go to 2        │
+│  7. If clean → commit + push            │
 └─────────────────────────────────────────┘
 ```
 
 Repeat until the fleet reports clean. Only then proceed to commit.
+
+### Step 3 — Fix Propagation (MANDATORY)
+
+After fixing ANY finding, you MUST sweep the entire repo for the same pattern
+class before moving on. **Never fix one instance and leave others.**
+
+**Pattern sweep rules:**
+
+1. **Regex fix** → grep ALL regex validations in ALL scripts. Same input type =
+   same regex. All path-segment inputs must reject literal `.` and `..`
+   (dot-prefixed names like `.github` are valid).
+2. **Error message fix** → grep ALL `echo` calls on error paths. Ensure: `Error:`
+   prefix, `>&2`, consistent wording.
+3. **Code snippet fix** → grep ALL files containing that snippet. If a snippet
+   appears in 8 files, fix all 8 — not just the one flagged.
+4. **UUOC fix** (`cat file | X`) → grep ALL `$(cat` and `cat.*|` patterns
+   repo-wide. Replace with `$(<file)` or direct arg.
+5. **Path/traversal fix** → grep ALL inputs used as path segments. Validate
+   every one.
+6. **Stderr fix** → grep ALL error-path `echo` calls. Every one must use `>&2`.
+7. **Comment/wording fix** → grep for the old wording repo-wide. Update every
+   instance.
+
+**Scope:** scripts, skills, agents, docs, CI — not just the file type flagged.
+
+**Verification:** After propagation, run a consistency audit:
+
+- Manifest discovery snippets identical everywhere
+- Regex patterns consistent for same input types
+- Error message format standardized
+- Placeholder syntax consistent ({X} not $X or \<X\>)
+- Script paths repo-root-relative in skills
 
 ---
 
@@ -316,7 +401,7 @@ This skill activates for any of the following phrases:
 - "fleet review"
 - "run fleet"
 - "multi-model review"
-- "10 agent review"
+- "11 agent review"
 - "cm review"
 - "code review fleet"
 - "review changes"
@@ -385,7 +470,7 @@ degraded and recommend a re-run before committing.
 
 ## File Scope Rules
 
-Not every file type needs all 10 agents. Use these rules to skip irrelevant
+Not every file type needs all 11 agents. Use these rules to skip irrelevant
 agents and save tokens:
 
 | File Pattern | Skip Agents |

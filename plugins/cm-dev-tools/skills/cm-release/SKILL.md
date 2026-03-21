@@ -1,7 +1,7 @@
 ---
 name: cm-release
 description: >
-  Cross-repo release workflow for all 5 Config Manager repositories. Validates
+  Cross-repo release workflow for all Config Manager repositories. Validates
   every repo (clean tree, build, test, lint), tags in dependency order, generates
   release notes from merged PRs, creates GitHub releases, verifies CI artifacts,
   and updates the project board. Supports semver strings and bump types.
@@ -11,33 +11,37 @@ description: >
 
 # CM Cross-Repo Release Workflow
 
-Orchestrate a synchronized release across all 5 Config Manager repositories.
+Orchestrate a synchronized release across all Config Manager repositories.
 Tags are applied in strict dependency order so that downstream `go.mod` references
 always resolve to published versions.
 
 ## Project Context
 
-### Repos (in dependency order)
+Read project context from `.cm/project.json` if available. Discovery order:
+`$CM_REPO_BASE` → cwd → parent directory → `$HOME/repo`. If no manifest is found,
+ask the user for the required values before proceeding.
 
-| Order | Repo | Path | Owner | Role |
-| --- | --- | --- | --- | --- |
-| 1 | config-manager-core | `$CM_REPO_BASE/config-manager-core` | msutara | central service |
-| 2 | cm-plugin-network | `$CM_REPO_BASE/cm-plugin-network` | msutara | network config plugin |
-| 3 | cm-plugin-update | `$CM_REPO_BASE/cm-plugin-update` | msutara | OS update plugin |
-| 4 | config-manager-tui | `$CM_REPO_BASE/config-manager-tui` | msutara | Bubble Tea TUI |
-| 5 | config-manager-web | `$CM_REPO_BASE/config-manager-web` | msutara | htmx web UI |
+```bash
+# Discover project manifest: $CM_REPO_BASE → cwd → parent → $HOME/repo (optional — ask user for context if unavailable)
+_cm="${CM_REPO_BASE:+$CM_REPO_BASE/.cm/project.json}"
+[ -f "${_cm:-}" ] || _cm=".cm/project.json"          # cwd
+[ -f "$_cm" ] || _cm="../.cm/project.json"            # parent dir
+[ -f "$_cm" ] || _cm="$HOME/repo/.cm/project.json"   # fallback
+if [ -f "$_cm" ]; then
+  jq '.' "$_cm"
+else
+  echo "No manifest found — ask the user for owner, repo names, and other context."
+fi
+```
+
+This provides: repo names, owner, paths (sibling repos under the manifest's parent directory), dependency order
+(use `dep_order` array), reference repo, and project board IDs. All values below are
+derived from the manifest.
 
 ### Dependency Order
 
-Tags must be applied in this order: config-manager-core → cm-plugin-network → cm-plugin-update → config-manager-tui → config-manager-web.
-
-### GitHub Project
-
-| Key | Value |
-| --- | --- |
-| Project ID | `PVT_kwHOAgHix84BPSxN` |
-| Status field ID | `PVTSSF_lAHOAgHix84BPSxNzg9vkrk` |
-| Done option | `98236657` |
+Use the `dep_order` array from the manifest. Tags must be applied in strict dependency
+order.
 
 ## Input
 
@@ -51,10 +55,21 @@ Accepted formats:
 - Bump type: `patch`, `minor`, or `major`
 
 If a bump type is given instead of an explicit version, calculate the next version
-from the latest tag on `config-manager-core` (the root dependency):
+from the latest tag on the reference repo (read `reference_repo` from the manifest):
 
 ```bash
-latestTag=$(git -C "${CM_REPO_BASE:-$HOME/repo}/config-manager-core" describe --tags --abbrev=0 2>/dev/null)
+# Discover project manifest: $CM_REPO_BASE → cwd → parent → $HOME/repo (optional — ask user for context if unavailable)
+_cm="${CM_REPO_BASE:+$CM_REPO_BASE/.cm/project.json}"
+[ -f "${_cm:-}" ] || _cm=".cm/project.json"          # cwd
+[ -f "$_cm" ] || _cm="../.cm/project.json"            # parent dir
+[ -f "$_cm" ] || _cm="$HOME/repo/.cm/project.json"   # fallback
+if [ -f "$_cm" ]; then
+  referenceRepo=$(jq -r '.reference_repo' "$_cm")
+  latestTag=$(git -C "$(dirname "$(dirname "$_cm")")/${referenceRepo}" describe --tags --abbrev=0 2>/dev/null)
+else
+  echo "No manifest found — ask the user for reference repo and latest tag." >&2
+  exit 1
+fi
 ```
 
 Parse with semver rules, increment the requested component, and reset lower
@@ -80,17 +95,23 @@ a matrix and report the first failure.
 | 6 | MD lint    | `markdownlint-cli2`      | Exit code 0   |
 
 ```bash
-base="${CM_REPO_BASE:-$HOME/repo}"
-repos=(
-    "config-manager-core"
-    "cm-plugin-network"
-    "cm-plugin-update"
-    "config-manager-tui"
-    "config-manager-web"
-)
+# Discover project manifest: $CM_REPO_BASE → cwd → parent → $HOME/repo (optional — ask user for context if unavailable)
+_cm="${CM_REPO_BASE:+$CM_REPO_BASE/.cm/project.json}"
+[ -f "${_cm:-}" ] || _cm=".cm/project.json"          # cwd
+[ -f "$_cm" ] || _cm="../.cm/project.json"            # parent dir
+[ -f "$_cm" ] || _cm="$HOME/repo/.cm/project.json"   # fallback
+if [ -f "$_cm" ]; then
+  base="$(cd "$(dirname "$_cm")/.." && pwd)"
+  # Read dep_order from manifest
+  repos=($(jq -r '.dep_order[]' "$_cm"))
+else
+  echo "No manifest found — ask the user for repo list and base directory." >&2
+  echo "Cannot proceed without manifest or explicit repo list." >&2
+  exit 1
+fi
 
 for n in "${repos[@]}"; do
-    pushd "$base/$n" > /dev/null
+    pushd "$base/$n" > /dev/null || { echo "❌ ${n}: directory not found at $base/$n" >&2; exit 1; }
 
     dirty=$(git status --porcelain)
     if [[ -n "$dirty" ]]; then
@@ -138,21 +159,24 @@ On failure, print a summary table:
 
 | Repo                  | Clean | Branch | Build | Test | Lint | Markdown |
 | --------------------- | ----- | ------ | ----- | ---- | ---- | -------- |
-| config-manager-core   | ✅    | ✅     | ✅    | ✅   | ✅   | ✅       |
-| cm-plugin-network     | ✅    | ✅     | ❌    | ⏭️   | ⏭️   | ⏭️       |
-| cm-plugin-update      | ⏭️    | ⏭️     | ⏭️    | ⏭️   | ⏭️   | ⏭️       |
-| config-manager-tui    | ⏭️    | ⏭️     | ⏭️    | ⏭️   | ⏭️   | ⏭️       |
-| config-manager-web    | ⏭️    | ⏭️     | ⏭️    | ⏭️   | ⏭️   | ⏭️       |
+| {repo1}               | ✅    | ✅     | ✅    | ✅   | ✅   | ✅       |
+| {repo2}               | ✅    | ✅     | ❌    | ⏭️   | ⏭️   | ⏭️       |
+| {repo3}               | ⏭️    | ⏭️     | ⏭️    | ⏭️   | ⏭️   | ⏭️       |
+| {repo4}               | ⏭️    | ⏭️     | ⏭️    | ⏭️   | ⏭️   | ⏭️       |
+| {repo5}               | ⏭️    | ⏭️     | ⏭️    | ⏭️   | ⏭️   | ⏭️       |
 
-First failure: cm-plugin-network — go build
+First failure: {repo2} — go build
+(Use actual repo names from manifest's dep_order)
 ```
 
 Do **not** proceed to tagging.
 
 ## Phase 2 — Tagging
 
-Apply tags in strict dependency order. Core **must** be tagged first because
-plugins import it, and tui/web import plugins + core.
+Apply tags in strict dependency order (use `dep_order` from the manifest). The
+reference repo **must** be tagged first because downstream repos import it.
+
+Example (actual repos from manifest):
 
 ```txt
 1. config-manager-core  → tag + push
@@ -167,7 +191,7 @@ plugins import it, and tui/web import plugins + core.
 version="v0.5.0"  # from user input
 
 for n in "${repos[@]}"; do
-    pushd "$base/$n" > /dev/null
+    pushd "$base/$n" > /dev/null || { echo "❌ ${n}: directory not found" >&2; exit 1; }
     git tag "$version"
     git push origin "$version"
     echo "🏷️  Tagged ${n} → $version"
@@ -217,7 +241,7 @@ Format as markdown with two sections:
 
 ## Full Changelog
 
-https://github.com/msutara/{repo}/compare/{prevTag}...{VERSION}
+https://github.com/{OWNER}/{repo}/compare/{prevTag}...{VERSION}
 ```
 
 ### Commit categorization
@@ -239,14 +263,14 @@ Sort commits into groups by conventional-commit prefix:
 Create a GitHub release for each repo using the generated notes:
 
 ```bash
-# Requires $repos and $version from Phase 2 above
+# Requires $repos, $version, and $owner from manifest/Phase 2
 for n in "${repos[@]}"; do
     notes="Release $version — see merged PRs for details"
     gh release create "$version" \
-        --repo "msutara/$n" \
+        --repo "$owner/$n" \
         --title "$version" \
         --notes "$notes"
-    echo "📦 Release created: https://github.com/msutara/$n/releases/tag/$version"
+    echo "📦 Release created: https://github.com/$owner/$n/releases/tag/$version"
 done
 ```
 
@@ -254,9 +278,10 @@ done
 
 The `release.yml` CI workflow triggers on `v*.*.*` tags.
 
-### config-manager-core artifacts
+### Reference repo artifacts
 
-The core repo builds `.deb` packages for three architectures:
+The reference repo (read `reference_repo` from manifest) builds `.deb` packages for
+three architectures:
 
 | Architecture | Expected artifact |
 | --- | --- |
@@ -267,10 +292,10 @@ The core repo builds `.deb` packages for three architectures:
 ### Verification steps
 
 ```bash
-# Requires $repos and $version from Phase 1 validation above
+# Requires $repos, $version, and $owner from manifest/Phase 1
 for n in "${repos[@]}"; do
     run=$(gh run list \
-        --repo "msutara/$n" \
+        --repo "$owner/$n" \
         --workflow "release.yml" \
         --limit 1 \
         --json status,conclusion,databaseId)
@@ -281,7 +306,9 @@ for n in "${repos[@]}"; do
 
     # Wait for completion if still in progress
     if [[ "$status" == "in_progress" ]]; then
-        gh run watch "$dbId" --repo "msutara/$n"
+        gh run watch "$dbId" --repo "$owner/$n"
+        # Re-fetch conclusion after watch completes
+        conclusion=$(gh run view "$dbId" --repo "$owner/$n" --json conclusion --jq '.conclusion')
     fi
 
     # Verify conclusion
@@ -289,10 +316,13 @@ for n in "${repos[@]}"; do
         echo "❌ ${n}: release workflow failed" >&2
     fi
 
-    # For core repo, verify .deb artifacts are attached
-    if [[ "$n" == "config-manager-core" ]]; then
+    # For reference repo, verify .deb artifacts are attached
+    if [ -f "$base/.cm/project.json" ]; then
+        referenceRepo=$(jq -r '.reference_repo' "$base/.cm/project.json")
+    fi
+    if [[ -n "${referenceRepo:-}" && "$n" == "$referenceRepo" ]]; then
         assets=$(gh release view "$version" \
-            --repo "msutara/$n" \
+            --repo "$owner/$n" \
             --json assets --jq '.assets[].name')
         # Expect 3 .deb files
     fi
@@ -306,22 +336,12 @@ investigation. Do **not** mark the release as complete.
 
 ### Update GitHub project board
 
-Set all release-related items to **Done**:
+Set all release-related items to the completion status defined in
+`.cm/project.json` (from the marketplace repo root):
 
 ```bash
-# Replace $ITEM_ID with the actual project item ID for each release item
-ITEM_ID="PVTI_..."  # from gh project item-list or item-add
-gh api graphql -f query="
-  mutation {
-    updateProjectV2ItemFieldValue(
-      input: {
-        projectId: \"PVT_kwHOAgHix84BPSxN\"
-        itemId: \"$ITEM_ID\"
-        fieldId: \"PVTSSF_lAHOAgHix84BPSxNzg9vkrk\"
-        value: { singleSelectOptionId: \"98236657\" }
-      }
-    ) { projectV2Item { id } }
-  }"
+# For each release-related PR or issue URL:
+./plugins/cm-dev-tools/scripts/project-board.sh --url {ITEM_URL} --status {DONE_STATUS}
 ```
 
 ### Pull latest tags locally
@@ -329,7 +349,7 @@ gh api graphql -f query="
 ```bash
 # Requires $base and $repos from Phase 1/2 above
 for n in "${repos[@]}"; do
-    pushd "$base/$n" > /dev/null
+    pushd "$base/$n" > /dev/null || { echo "❌ ${n}: directory not found at $base/$n" >&2; exit 1; }
     git fetch --tags
     popd > /dev/null
 done
@@ -342,14 +362,34 @@ done
 
 | Repo                | Tag    | Artifacts |
 | ------------------- | ------ | --------- |
-| config-manager-core | v0.5.0 | 3 .deb    |
-| cm-plugin-network   | v0.5.0 | —         |
-| cm-plugin-update    | v0.5.0 | —         |
-| config-manager-tui  | v0.5.0 | —         |
-| config-manager-web  | v0.5.0 | —         |
+| {reference_repo}    | v0.5.0 | 3 .deb    |
+| {other repos...}    | v0.5.0 | —         |
+
+(Use actual repo names from manifest's dep_order)
 
 Release URLs printed per repo.
 ```
+
+## Manifest Maintenance
+
+If repos are added or removed between releases, update the project manifest
+**before** starting the release flow:
+
+```bash
+# Discover project manifest: $CM_REPO_BASE → cwd → parent → $HOME/repo (optional — ask user for context if unavailable)
+_cm="${CM_REPO_BASE:+$CM_REPO_BASE/.cm/project.json}"
+[ -f "${_cm:-}" ] || _cm=".cm/project.json"          # cwd
+[ -f "$_cm" ] || _cm="../.cm/project.json"            # parent dir
+[ -f "$_cm" ] || _cm="$HOME/repo/.cm/project.json"   # fallback
+if [ -f "$_cm" ]; then
+  # Verify manifest matches the repos you intend to release
+  jq '.repos[].name, .dep_order[]' "$_cm"
+else
+  echo "No manifest found — verify repo list manually before proceeding."
+fi
+```
+
+If the manifest is outdated, edit it directly or re-run `init-project.sh`.
 
 ## Safety Rules
 

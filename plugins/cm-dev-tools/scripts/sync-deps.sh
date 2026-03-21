@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # sync-deps.sh — Bump a go.mod dependency across downstream CM repos
 # Usage: ./sync-deps.sh <source-module> <version>
-# Example: ./sync-deps.sh github.com/msutara/config-manager-core v0.5.0
+# Example: ./sync-deps.sh github.com/{OWNER}/config-manager-core v0.5.0
 set -euo pipefail
 
 if ! command -v go &>/dev/null; then
@@ -12,14 +12,22 @@ fi
 SOURCE_MODULE="${1:?Usage: sync-deps.sh <source-module> <version>}"
 VERSION="${2:?Usage: sync-deps.sh <source-module> <version>}"
 
-REPO_BASE="${CM_REPO_BASE:-$HOME/repo}"
-ALL_REPOS=(
-  config-manager-core
-  cm-plugin-network
-  cm-plugin-update
-  config-manager-tui
-  config-manager-web
-)
+# Validate inputs to prevent command injection
+if [[ ! "$SOURCE_MODULE" =~ ^[a-zA-Z0-9][a-zA-Z0-9._/-]*$ ]] || [[ "$SOURCE_MODULE" == *..* ]]; then
+  echo "Error: Invalid source module format: $SOURCE_MODULE" >&2
+  exit 1
+fi
+# Allow semver (vX.Y.Z[-prerelease][+build]) and Go pseudo-versions (vX.Y.Z-yyyymmddhhmmss-abcdefabcdef)
+semver_re='^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$'
+pseudo_re='^v[0-9]+\.[0-9]+\.[0-9]+-(0\.)?[0-9]{14}-[0-9a-f]{7,}$'
+if [[ ! "$VERSION" =~ $semver_re && ! "$VERSION" =~ $pseudo_re ]]; then
+  echo "Error: Invalid version format: $VERSION (expected semver vX.Y.Z[-prerelease][+build] or Go pseudo-version)" >&2
+  exit 1
+fi
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=lib/load-project.sh
+source "$SCRIPT_DIR/lib/load-project.sh"
 
 UPDATED=()
 ERRORS=()
@@ -28,7 +36,7 @@ _tmp_files=()
 cleanup() { if [[ ${#_tmp_files[@]} -gt 0 ]]; then rm -f "${_tmp_files[@]}"; fi; }
 trap cleanup EXIT INT TERM
 
-for repo in "${ALL_REPOS[@]}"; do
+for repo in "${REPOS[@]}"; do
   path="$REPO_BASE/$repo"
   gomod="$path/go.mod"
 
@@ -54,14 +62,14 @@ for repo in "${ALL_REPOS[@]}"; do
 
   tmp_err=$(mktemp "${TMPDIR:-/tmp}/cm-sync-deps.XXXXXX"); _tmp_files+=("$tmp_err")
   if ! go get "${SOURCE_MODULE}@${VERSION}" 2>"$tmp_err"; then
-    ERRORS+=("$repo: go get failed: $(cat "$tmp_err")")
+    ERRORS+=("$repo: go get failed: $(<"$tmp_err")")
     popd > /dev/null
     continue
   fi
 
   tmp_err=$(mktemp "${TMPDIR:-/tmp}/cm-sync-deps.XXXXXX"); _tmp_files+=("$tmp_err")
   if ! go mod tidy 2>"$tmp_err"; then
-    ERRORS+=("$repo: go mod tidy failed: $(cat "$tmp_err")")
+    ERRORS+=("$repo: go mod tidy failed: $(<"$tmp_err")")
     popd > /dev/null
     continue
   fi
@@ -79,9 +87,9 @@ else
   echo "Updated: none"
 fi
 if [ ${#ERRORS[@]} -gt 0 ]; then
-  echo "Errors:"
+  echo "Errors:" >&2
   for err in "${ERRORS[@]}"; do
-    echo "  ❌ $err"
+    echo "  ❌ $err" >&2
   done
   exit 1
 fi

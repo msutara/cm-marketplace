@@ -48,7 +48,7 @@ run_step() {
   fi
 }
 
-cd "$REPO_PATH"
+cd "$REPO_PATH" || { echo "Error: failed to cd into $REPO_PATH" >&2; exit 1; }
 
 echo "--- $REPO_NAME ---"
 run_step build go build ./...

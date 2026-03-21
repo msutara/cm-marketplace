@@ -30,10 +30,27 @@ The Config Manager project enforces a **permanent parity rule**:
 
 ## Repos
 
-| UI | Path | Stack |
-| --- | --- | --- |
-| TUI | `$CM_REPO_BASE/config-manager-tui` | Bubble Tea terminal UI |
-| Web | `$CM_REPO_BASE/config-manager-web` | htmx + Go templates web UI |
+Read TUI and Web repo paths from `.cm/project.json` if available. Discovery order:
+`$CM_REPO_BASE` → cwd → parent directory → `$HOME/repo`. If no manifest is found,
+ask the user for the required values before proceeding.
+
+```bash
+# Discover project manifest: $CM_REPO_BASE → cwd → parent → $HOME/repo (optional — ask user for context if unavailable)
+_cm="${CM_REPO_BASE:+$CM_REPO_BASE/.cm/project.json}"
+[ -f "${_cm:-}" ] || _cm=".cm/project.json"          # cwd
+[ -f "$_cm" ] || _cm="../.cm/project.json"            # parent dir
+[ -f "$_cm" ] || _cm="$HOME/repo/.cm/project.json"   # fallback
+if [ -f "$_cm" ]; then
+  jq '.repos[] | select((.role // "") | (contains("TUI") or contains("web UI")))' "$_cm"
+else
+  echo "No manifest found — ask the user for owner, repo names, and other context."
+fi
+```
+
+| UI | Stack |
+| --- | --- |
+| TUI | Bubble Tea terminal UI |
+| Web | htmx + Go templates web UI |
 
 ## Procedure
 
@@ -162,8 +179,11 @@ Compile all findings into a single report with this structure:
 Ask the user whether to create GitHub issues for each gap. If approved, run:
 
 ```bash
-gh issue create --repo msutara/config-manager-web --title "Parity: Add {feature}" --body "{details}"
+# Use the web repo name discovered from the manifest query in Step 1
+gh issue create --repo {OWNER}/{web_repo_name} --title "Parity: Add {feature}" --body "{details}"
 ```
+
+(Replace `{web_repo_name}` with the actual repo name from the manifest `repos[]` query above)
 
 Create one issue per gap so they can be tracked and closed independently.
 

@@ -1,7 +1,7 @@
 ---
 name: cm-docs-sync
 description: >
-  Documentation consistency auditing across all 5 CM repos. Scans configuration
+  Documentation consistency auditing across all CM repos. Scans configuration
   files for drift, validates copilot-instructions.md accuracy, cross-references
   specs with code, checks README freshness, and runs markdownlint. Generates a
   unified report and optionally auto-fixes mechanical divergences.
@@ -11,29 +11,39 @@ description: >
 
 # CM Documentation Consistency Audit
 
-Audit and enforce documentation parity across all 5 CM repositories.
+Audit and enforce documentation parity across all CM repositories.
 
 ## Repositories
 
-| # | Repo | Path |
-| --- | --- | --- |
-| 1 | `config-manager-core` | `$CM_REPO_BASE/config-manager-core` |
-| 2 | `cm-plugin-network` | `$CM_REPO_BASE/cm-plugin-network` |
-| 3 | `cm-plugin-update` | `$CM_REPO_BASE/cm-plugin-update` |
-| 4 | `config-manager-tui` | `$CM_REPO_BASE/config-manager-tui` |
-| 5 | `config-manager-web` | `$CM_REPO_BASE/config-manager-web` |
+Read project context from `.cm/project.json` if available. Discovery order:
+`$CM_REPO_BASE` → cwd → parent directory → `$HOME/repo`. If no manifest is found,
+ask the user for the required values before proceeding.
 
-The **reference repo** for identical files is `config-manager-core`.
+```bash
+# Discover project manifest: $CM_REPO_BASE → cwd → parent → $HOME/repo (optional — ask user for context if unavailable)
+_cm="${CM_REPO_BASE:+$CM_REPO_BASE/.cm/project.json}"
+[ -f "${_cm:-}" ] || _cm=".cm/project.json"          # cwd
+[ -f "$_cm" ] || _cm="../.cm/project.json"            # parent dir
+[ -f "$_cm" ] || _cm="$HOME/repo/.cm/project.json"   # fallback
+if [ -f "$_cm" ]; then
+  jq '.repos[] | "\(.name) → \(.role)"' "$_cm"
+else
+  echo "No manifest found — ask the user for owner, repo names, and other context."
+fi
+```
+
+The **reference repo** (use `reference_repo` from manifest) is the source of truth
+for identical configuration files.
 
 ## Step 1 — Scan Configuration Files
 
-Compare files that MUST be identical (or structurally identical) across all 5 repos.
+Compare files that MUST be identical (or structurally identical) across all repos.
 
 | File | Must Match | Notes |
 | --- | --- | --- |
 | `.markdownlint.json` | Byte-identical | Full 28-rule config (see `config-manager-core/.markdownlint.json` as reference) |
 | `.golangci.yml` | Structurally identical | v2 format; repo-specific linter exclusions are acceptable |
-| `dependabot.yml` | Structurally identical | gomod + github-actions, weekly schedule |
+| `.github/dependabot.yml` | Structurally identical | gomod + github-actions, weekly schedule |
 | `.github/workflows/ci.yml` | Pattern-matching | Same actions versions, same steps; repo-specific test commands expected |
 | `.github/PULL_REQUEST_TEMPLATE.md` | Identical | Standard PR template |
 
@@ -42,7 +52,7 @@ Compare files that MUST be identical (or structurally identical) across all 5 re
 For each file listed above:
 
 1. Read the file from every repo. Record which repos are missing it.
-2. Diff pairwise against the reference (`config-manager-core`).
+2. Diff pairwise against the reference repo (read `reference_repo` from manifest).
 3. For **byte-identical** files — any difference is a finding.
 4. For **structurally identical** files — parse YAML, compare keys and values, allow documented repo-specific overrides.
 5. For **pattern-matching** files — verify action versions and step names match; flag divergent steps.
@@ -57,7 +67,7 @@ For every repo, verify:
 - References the correct repo name and Go import path.
 - Architecture section matches the actual directory structure (`ls -R` or `tree` top-level dirs).
 - Plugin interface references (function signatures, interface names) are up-to-date with code.
-- Conventions section is consistent with the equivalent section in the other 4 repos.
+- Conventions section is consistent with the equivalent section in other repos.
 - Every file path mentioned in the document actually exists on disk.
 
 Flag stale references (e.g., `internal/plugin/` when the interface moved to `plugin/`).
@@ -91,7 +101,8 @@ For each repo's `README.md`:
 For each repo, execute:
 
 ```bash
-cd {repo_path} && markdownlint-cli2 "**/*.md" "#node_modules"
+cd "{repo_path}" || { echo "Failed to cd into {repo_path}"; exit 1; }
+markdownlint-cli2 "**/*.md" "#node_modules"
 ```
 
 Collect violations per repo and include them in the report.
@@ -111,76 +122,69 @@ Generated: {timestamp}
 
 ### .markdownlint.json
 
-- ✅ config-manager-core: matches reference
-- ✅ cm-plugin-network: matches reference
-- ⚠️ cm-plugin-update: MISSING (file not found)
-- ✅ config-manager-tui: matches reference
-- ✅ config-manager-web: matches reference
+- ✅ {reference_repo}: matches reference
+- ✅ {repo2}: matches reference
+- ⚠️ {repo3}: MISSING (file not found)
+- ✅ {repo4}: matches reference
+- ✅ {repo5}: matches reference
+
+(Use actual repo names from manifest)
 
 ### .golangci.yml
 
-- ✅ All 5 repos: structurally identical (v2 format)
-- ℹ️ Web has additional staticcheck exclusion for ST1005 (capitalized errors in HTTP handlers)
+- ✅ All repos: structurally identical (v2 format)
+- ℹ️ Web repo may have additional staticcheck exclusion for ST1005 (capitalized errors in HTTP handlers)
 
-### dependabot.yml
+(Use actual repo names from manifest)
 
-- ✅ All 5 repos: structurally identical
+### .github/dependabot.yml
+
+- ✅ All repos: structurally identical
+
+(Use actual repo names from manifest)
 
 ### .github/workflows/ci.yml
 
-- ✅ All 5 repos: same actions versions (actions/checkout@v4, actions/setup-go@v5)
-- ℹ️ config-manager-web uses additional `npm ci` step (expected)
+- ✅ All repos: same actions versions (actions/checkout@v6, actions/setup-go@v5)
+- ℹ️ Web repo may use additional `npm ci` step (expected)
+
+(Use actual repo names from manifest)
 
 ### .github/PULL_REQUEST_TEMPLATE.md
 
-- ✅ All 5 repos: identical
+- ✅ All repos: identical
+
+(Use actual repo names from manifest)
 
 ## Spec Accuracy
 
-### config-manager-core
+### {reference_repo}
 
 - ✅ 12/12 API endpoints match code
 - ⚠️ SPEC.md documents `GET /api/v1/jobs/{id}/runs` but code has `GET /api/v1/jobs/{id}/runs/latest`
 
-### cm-plugin-network
-
-- ✅ 4/4 API endpoints match code
-
-### cm-plugin-update
-
-- ✅ 6/6 API endpoints match code
-
-### config-manager-tui
-
-- ℹ️ No API spec (TUI only)
-
-### config-manager-web
-
-- ⚠️ 2 endpoints in code but not in spec
+(Use actual repo names from manifest)
 
 ## copilot-instructions.md
 
-- ✅ config-manager-core: accurate
-- ✅ cm-plugin-network: accurate
-- ⚠️ cm-plugin-update: references `internal/plugin/` but interface moved to `plugin/` (stale)
-- ✅ config-manager-tui: accurate
-- ✅ config-manager-web: accurate
+- ✅ {reference_repo}: accurate
+- ⚠️ {repo2}: references `internal/plugin/` but interface moved to `plugin/` (stale)
+
+(Use actual repo names from manifest)
 
 ## README.md
 
-- ⚠️ config-manager-core: installation says v0.3.0 but latest tag is v0.4.3
-- ✅ cm-plugin-network: up-to-date
-- ✅ cm-plugin-update: up-to-date
-- ✅ config-manager-tui: up-to-date
-- ✅ config-manager-web: up-to-date
+- ⚠️ {reference_repo}: installation says v0.3.0 but latest tag is v0.4.3
+- ✅ Other repos: up-to-date
+
+(Use actual repo names from manifest)
 
 ## Markdownlint
 
-- ✅ config-manager-core: 0 violations
-- ⚠️ cm-plugin-network: 2 violations in SPEC.md (MD032: blank line around list)
-- ✅ cm-plugin-update: 0 violations
-- ✅ config-manager-tui: 0 violations
-- ✅ config-manager-web: 0 violations
+- ✅ {reference_repo}: 0 violations
+- ⚠️ {repo2}: 2 violations in SPEC.md (MD032: blank line around list)
+
+(Use actual repo names from manifest)
 
 ## Summary
 
@@ -199,7 +203,7 @@ Generated: {timestamp}
 
 ### Mechanical Fixes (safe to auto-apply)
 
-- Copy the reference file from `config-manager-core` to repos where it is missing or diverged.
+- Copy the reference file from the reference repo (read `reference_repo` from manifest) to repos where it is missing or diverged.
 - Fix markdownlint violations (trailing whitespace, missing blank lines, etc.).
 - Update version references in README installation instructions.
 
