@@ -4,12 +4,12 @@
  * ensure-prerequisites.mjs — preflight check and installer for cm-marketplace.
  *
  * Verifies that every CLI tool required by the marketplace scripts and skills
- * is installed and meets the minimum version. Automatically installs missing
- * tools when possible. Outputs a coloured summary to stderr.
+ * is installed and meets the minimum version. Outputs a coloured summary to
+ * stderr. Requires Node.js to already be installed (it is the runtime).
  *
  * Exit codes:
  *   0 — all prerequisites satisfied (possibly after auto-install)
- *   1 — one or more prerequisites still missing
+ *   1 — one or more prerequisites not met (missing, too old, or unparseable)
  *
  * Usage:
  *   node ensure-prerequisites.mjs            # check only
