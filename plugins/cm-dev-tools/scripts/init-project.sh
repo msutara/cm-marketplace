@@ -168,7 +168,7 @@ mkdir -p "$TARGET_DIR"
 # Build JSON with jq
 repos_json="[]"
 for i in "${!repos[@]}"; do
-  repos_json=$(echo "$repos_json" | jq --arg n "${repos[$i]}" --arg r "${roles[$i]}" '. + [{name: $n, role: $r}]')
+  repos_json=$(printf '%s' "$repos_json" | jq --arg n "${repos[$i]}" --arg r "${roles[$i]}" '. + [{name: $n, role: $r}]')
 done
 dep_json=$(printf '%s\n' "${dep_order[@]}" | jq -R '.' | jq -s '.')
 
@@ -215,7 +215,7 @@ if [ -n "$proj_num" ]; then
       echo "    ⚠️  Invalid status option ID format '$val' — skipped: $kv" >&2
       continue
     fi
-    statuses=$(echo "$statuses" | jq --arg k "$key" --arg v "$val" '. + {($k): $v}')
+    statuses=$(printf '%s' "$statuses" | jq --arg k "$key" --arg v "$val" '. + {($k): $v}')
   done
 
   jq -n \

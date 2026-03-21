@@ -96,7 +96,7 @@ if [ -n "$URL" ]; then
   echo "Adding $URL to project board..."
   _gh_add_err=$(mktemp "${TMPDIR:-/tmp}/cm-project-board.XXXXXX"); _cleanup_files+=("$_gh_add_err")
   if add_result=$(gh project item-add "$PROJECT_NUMBER" --owner "$OWNER" --url "$URL" --format json 2>"$_gh_add_err"); then
-    if ! ADDED_ITEM_ID=$(echo "$add_result" | jq -er '.id // empty' 2>/dev/null); then
+    if ! ADDED_ITEM_ID=$(printf '%s' "$add_result" | jq -er '.id // empty' 2>/dev/null); then
       echo "  ❌ Failed to parse project item ID from gh output." >&2
       echo "      Raw output: $add_result" >&2
       exit 1
@@ -168,9 +168,9 @@ if [ -n "$STATUS" ]; then
     _gql_err=$(mktemp "${TMPDIR:-/tmp}/cm-gql-err.XXXXXX"); _cleanup_files+=("$_gql_err")
     if output=$(gh api graphql -f query="$mutation" 2>"$_gql_err"); then
       # GraphQL can return 200 with errors in the body
-      if echo "$output" | jq -e '.errors' &>/dev/null; then
+      if printf '%s' "$output" | jq -e '.errors' &>/dev/null; then
         echo "  ❌ GraphQL mutation returned errors" >&2
-        echo "$output" | jq -r '.errors[].message' >&2
+        printf '%s' "$output" | jq -r '.errors[].message' >&2
         exit 1
       fi
       echo "  ✅ Status updated to $STATUS"
