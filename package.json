@@ -1,0 +1,17 @@
+{
+  "name": "cm-marketplace",
+  "version": "1.0.0",
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  },
+  "description": "CM Plugin Marketplace — workflow skills and helper scripts for Claude Code and GitHub Copilot CLI",
+  "scripts": {
+    "lint": "markdownlint-cli2 \"**/*.md\" \"#**/node_modules\"",
+    "lint:fix": "markdownlint-cli2 --fix \"**/*.md\" \"#**/node_modules\"",
+    "lint:all": "npm run lint"
+  },
+  "devDependencies": {
+    "markdownlint-cli2": "0.20.0"
+  }
+}

@@ -5,21 +5,8 @@ description: >
   CI workflows, specs, docs, issue templates, and core wiring. Scaffolds the plugin
   struct implementing plugin.Plugin (and optionally plugin.Configurable), service
   layer, Chi routes, httptest-based tests, and an initial PR on phase1/skeleton-and-specs.
-triggers:
-  - "create plugin"
-  - "new plugin"
-  - "scaffold plugin"
-  - "add plugin repo"
-  - "new cm plugin"
-  - "plugin skeleton"
-  - "create cm plugin"
-  - "bootstrap plugin"
-repos:
-  - name: config-manager-core
-    path: C:\Users\marius\repo\config-manager-core
-    owner: msutara
-github_project:
-  id: PVT_kwHOAgHix84BPSxN
+  USE FOR: create plugin, new plugin, scaffold plugin, add plugin repo, new cm plugin,
+  plugin skeleton, create cm plugin, bootstrap plugin.
 ---
 
 # Scaffold CM Plugin
@@ -27,6 +14,13 @@ github_project:
 One-shot creation of a fully wired Config Manager plugin repository. After this
 skill completes you will have a public GitHub repo, passing CI, an initial PR,
 and the plugin registered in the core binary.
+
+## Project Context
+
+| Key | Value |
+| --- | --- |
+| Reference repo | `config-manager-core` (`$CM_REPO_BASE/config-manager-core`, owner: msutara) |
+| GitHub Project ID | `PVT_kwHOAgHix84BPSxN` |
 
 ## Step 0 — Gather Input
 
@@ -52,7 +46,7 @@ Derive from these:
 
 ## Step 1 — Create the GitHub Repository
 
-```powershell
+```bash
 gh repo create msutara/cm-plugin-{name} --public --clone --description "{description}"
 cd cm-plugin-{name}
 git checkout -b phase1/skeleton-and-specs
@@ -60,7 +54,7 @@ git checkout -b phase1/skeleton-and-specs
 
 Verify the repo was created:
 
-```powershell
+```bash
 gh repo view msutara/cm-plugin-{name} --json name,url
 ```
 
@@ -85,6 +79,7 @@ cm-plugin-{name}/
 │   └── USAGE.md
 ├── .github/
 │   ├── copilot-instructions.md
+│   ├── dependabot.yml
 │   ├── PULL_REQUEST_TEMPLATE.md
 │   ├── ISSUE_TEMPLATE/
 │   │   ├── bug_report.md
@@ -96,7 +91,6 @@ cm-plugin-{name}/
 ├── .golangci.yml
 ├── .markdownlint.json
 ├── .gitignore
-├── dependabot.yml
 ├── LICENSE
 ├── README.md
 └── CONTRIBUTING.md
@@ -121,7 +115,7 @@ require github.com/msutara/config-manager-core v0.4.3
 
 After writing the file, run:
 
-```powershell
+```bash
 go mod tidy
 ```
 
@@ -182,12 +176,12 @@ func (p *{Name}Plugin) ScheduledJobs() []plugin.JobDefinition {
 	// CONDITIONAL: if needs_jobs is false, return nil.
 	// If true, return job definitions. Example:
 	// return []plugin.JobDefinition{
-	// 	{
-	// 		ID:          "{name}.check",
-	// 		Description: "Periodic {name} check",
-	// 		Cron:        "0 * * * *",
-	// 		Func:        p.svc.RunCheck,
-	// 	},
+	//  {
+	//   ID:          "{name}.check",
+	//   Description: "Periodic {name} check",
+	//   Cron:        "0 * * * *",
+	//   Func:        p.svc.RunCheck,
+	//  },
 	// }
 	return nil
 }
@@ -204,16 +198,17 @@ func (p *{Name}Plugin) Endpoints() []plugin.Endpoint {
 // --- Configurable interface (CONDITIONAL — only if needs_config is true) ---
 
 // Configure applies startup configuration. Called once by the core.
-func (p *{Name}Plugin) Configure(cfg map[string]any) {
+func (p *{Name}Plugin) Configure(cfg map[string]any) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if cfg == nil {
-		return
+		return nil
 	}
 	// Apply config keys with sensible defaults. Example:
 	// if v, ok := cfg["schedule"].(string); ok {
-	// 	p.schedule = v
+	//  p.schedule = v
 	// }
+	return nil
 }
 
 // UpdateConfig validates and applies a single config key change.
@@ -223,13 +218,13 @@ func (p *{Name}Plugin) UpdateConfig(key string, value any) error {
 	// Switch on key, validate, apply. Example:
 	// switch key {
 	// case "schedule":
-	// 	s, ok := value.(string)
-	// 	if !ok {
-	// 		return fmt.Errorf("schedule must be a string")
-	// 	}
-	// 	p.schedule = s
+	//  s, ok := value.(string)
+	//  if !ok {
+	//   return fmt.Errorf("schedule must be a string")
+	//  }
+	//  p.schedule = s
 	// default:
-	// 	return fmt.Errorf("unknown config key: %s", key)
+	//  return fmt.Errorf("unknown config key: %s", key)
 	// }
 	return nil
 }
@@ -274,10 +269,10 @@ type Service struct {
 // Example:
 //
 // func (s *Service) GetStatus() (*StatusResult, error) {
-// 	s.mu.Lock()
-// 	defer s.mu.Unlock()
-// 	slog.Info("fetching status", "plugin", "{name}")
-// 	return &StatusResult{}, nil
+//  s.mu.Lock()
+//  defer s.mu.Unlock()
+//  slog.Info("fetching status", "plugin", "{name}")
+//  return &StatusResult{}, nil
 // }
 ```
 
@@ -312,12 +307,12 @@ func newRouter(svc *Service) http.Handler {
 // FILL: implement one handler function per route. Example:
 //
 // func (h *handler) handleStatus(w http.ResponseWriter, r *http.Request) {
-// 	result, err := h.svc.GetStatus()
-// 	if err != nil {
-// 		writeError(w, http.StatusInternalServerError, "status check failed", err.Error())
-// 		return
-// 	}
-// 	writeJSON(w, http.StatusOK, result)
+//  result, err := h.svc.GetStatus()
+//  if err != nil {
+//   writeError(w, http.StatusInternalServerError, "status check failed", err.Error())
+//   return
+//  }
+//  writeJSON(w, http.StatusOK, result)
 // }
 
 // --- Shared HTTP helpers ---
@@ -411,7 +406,9 @@ func TestPluginEndpoints(t *testing.T) {
 // CONDITIONAL: include only if Configurable is needed.
 func TestPluginConfigurable(t *testing.T) {
 	var p plugin.Configurable = New{Name}Plugin()
-	p.Configure(nil)
+	if err := p.Configure(nil); err != nil {
+		t.Fatalf("Configure(nil) error: %v", err)
+	}
 
 	cfg := p.CurrentConfig()
 	if cfg == nil {
@@ -439,14 +436,14 @@ func TestServiceCreation(t *testing.T) {
 // FILL: add one test per Service method. Example:
 //
 // func TestServiceGetStatus(t *testing.T) {
-// 	svc := &Service{}
-// 	result, err := svc.GetStatus()
-// 	if err != nil {
-// 		t.Fatalf("GetStatus() error: %v", err)
-// 	}
-// 	if result == nil {
-// 		t.Fatal("GetStatus() returned nil")
-// 	}
+//  svc := &Service{}
+//  result, err := svc.GetStatus()
+//  if err != nil {
+//   t.Fatalf("GetStatus() error: %v", err)
+//  }
+//  if result == nil {
+//   t.Fatal("GetStatus() returned nil")
+//  }
 // }
 ```
 
@@ -470,36 +467,36 @@ func newTestServer(t *testing.T) *httptest.Server {
 // FILL: add one test per route. Example:
 //
 // func TestGetStatus(t *testing.T) {
-// 	ts := newTestServer(t)
-// 	defer ts.Close()
+//  ts := newTestServer(t)
+//  defer ts.Close()
 //
-// 	resp, err := http.Get(ts.URL + "/status")
-// 	if err != nil {
-// 		t.Fatalf("GET /status error: %v", err)
-// 	}
-// 	defer resp.Body.Close()
+//  resp, err := http.Get(ts.URL + "/status")
+//  if err != nil {
+//   t.Fatalf("GET /status error: %v", err)
+//  }
+//  defer resp.Body.Close()
 //
-// 	if resp.StatusCode != http.StatusOK {
-// 		t.Errorf("GET /status status = %d, want %d", resp.StatusCode, http.StatusOK)
-// 	}
-// 	if ct := resp.Header.Get("Content-Type"); ct != "application/json" {
-// 		t.Errorf("Content-Type = %q, want application/json", ct)
-// 	}
+//  if resp.StatusCode != http.StatusOK {
+//   t.Errorf("GET /status status = %d, want %d", resp.StatusCode, http.StatusOK)
+//  }
+//  if ct := resp.Header.Get("Content-Type"); ct != "application/json" {
+//   t.Errorf("Content-Type = %q, want application/json", ct)
+//  }
 // }
 //
 // func TestPostApply(t *testing.T) {
-// 	ts := newTestServer(t)
-// 	defer ts.Close()
+//  ts := newTestServer(t)
+//  defer ts.Close()
 //
-// 	resp, err := http.Post(ts.URL+"/apply", "application/json", strings.NewReader(`{}`))
-// 	if err != nil {
-// 		t.Fatalf("POST /apply error: %v", err)
-// 	}
-// 	defer resp.Body.Close()
+//  resp, err := http.Post(ts.URL+"/apply", "application/json", strings.NewReader(`{}`))
+//  if err != nil {
+//   t.Fatalf("POST /apply error: %v", err)
+//  }
+//  defer resp.Body.Close()
 //
-// 	if resp.StatusCode != http.StatusOK {
-// 		t.Errorf("POST /apply status = %d, want %d", resp.StatusCode, http.StatusOK)
-// 	}
+//  if resp.StatusCode != http.StatusOK {
+//   t.Errorf("POST /apply status = %d, want %d", resp.StatusCode, http.StatusOK)
+//  }
 // }
 ```
 
@@ -1082,7 +1079,7 @@ The plugin exposes configuration via the `Configurable` interface.
 
 ### 3.23 — specs/ARCHITECTURE.md
 
-```markdown
+````markdown
 # {Name} Plugin Architecture
 
 ## Package Layout
@@ -1120,7 +1117,7 @@ HTTP Request
 - **Chi router** — consistent with all other CM plugins.
 - **Mutex strategy** — `sync.Mutex` in Service for state mutations,
   `sync.RWMutex` in Plugin for config access.
-```
+````
 
 ### 3.24 — docs/USAGE.md
 
@@ -1183,7 +1180,7 @@ The plugin exposes configuration via `GET /config`:
 
 ## Step 4 — Run `go mod tidy` and Verify Build
 
-```powershell
+```bash
 cd cm-plugin-{name}
 go mod tidy
 go build ./...
@@ -1195,7 +1192,7 @@ All four commands must pass. Fix any issues before continuing.
 
 ## Step 5 — Wire Into Core
 
-Edit `C:\Users\marius\repo\config-manager-core\cmd\cm\main.go`:
+Edit `$CM_REPO_BASE/config-manager-core/cmd/cm/main.go`:
 
 1. Add the import (alphabetical order among plugin imports):
 
@@ -1211,8 +1208,8 @@ Edit `C:\Users\marius\repo\config-manager-core\cmd\cm\main.go`:
 
 3. Run `go mod tidy` in `config-manager-core` to pull the new dependency:
 
-   ```powershell
-   cd C:\Users\marius\repo\config-manager-core
+   ```bash
+   cd "${CM_REPO_BASE:-$HOME/repo}/config-manager-core"
    go get github.com/msutara/cm-plugin-{name}@latest
    go mod tidy
    go build ./...
@@ -1224,13 +1221,13 @@ Edit `C:\Users\marius\repo\config-manager-core\cmd\cm\main.go`:
 
 ## Step 6 — Add to GitHub Project Board
 
-```powershell
+```bash
 gh project item-add 1 --owner msutara --url "https://github.com/msutara/cm-plugin-{name}"
 ```
 
 ## Step 7 — Commit and Create Initial PR
 
-```powershell
+```bash
 cd cm-plugin-{name}
 git add -A
 git commit -m "feat: scaffold {name} plugin skeleton
@@ -1250,19 +1247,19 @@ git push -u origin phase1/skeleton-and-specs
 
 Create the PR:
 
-```powershell
-gh pr create `
-  --repo msutara/cm-plugin-{name} `
-  --base main `
-  --head phase1/skeleton-and-specs `
-  --title "feat: scaffold {name} plugin skeleton and specs" `
+```bash
+gh pr create \
+  --repo msutara/cm-plugin-{name} \
+  --base main \
+  --head phase1/skeleton-and-specs \
+  --title "feat: scaffold {name} plugin skeleton and specs" \
   --body "## Summary
 
 Initial plugin scaffold for **cm-plugin-{name}** — {description}.
 
 ### What's included
 
-- \`plugin.go\` — \`{Name}Plugin\` implementing \`plugin.Plugin\`$(if needs_config) and \`plugin.Configurable\`
+- \`plugin.go\` — \`{Name}Plugin\` implementing \`plugin.Plugin\` and \`plugin.Configurable\` (if needs_config)
 - \`service.go\` — business logic layer
 - \`routes.go\` — Chi router with endpoint handlers
 - Unit tests (\`plugin_test.go\`, \`service_test.go\`, \`routes_test.go\`)

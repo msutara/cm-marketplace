@@ -5,16 +5,8 @@ description: >
   files for drift, validates copilot-instructions.md accuracy, cross-references
   specs with code, checks README freshness, and runs markdownlint. Generates a
   unified report and optionally auto-fixes mechanical divergences.
-triggers:
-  - "sync docs"
-  - "docs audit"
-  - "check documentation"
-  - "update docs"
-  - "docs consistency"
-  - "audit docs"
-  - "documentation check"
-  - "verify docs"
-  - "docs parity"
+  USE FOR: sync docs, docs audit, check documentation, update docs,
+  docs consistency, audit docs, documentation check, verify docs, docs parity.
 ---
 
 # CM Documentation Consistency Audit
@@ -25,11 +17,11 @@ Audit and enforce documentation parity across all 5 CM repositories.
 
 | # | Repo | Path |
 | --- | --- | --- |
-| 1 | `config-manager-core` | `C:\Users\marius\repo\config-manager-core` |
-| 2 | `cm-plugin-network` | `C:\Users\marius\repo\cm-plugin-network` |
-| 3 | `cm-plugin-update` | `C:\Users\marius\repo\cm-plugin-update` |
-| 4 | `config-manager-tui` | `C:\Users\marius\repo\config-manager-tui` |
-| 5 | `config-manager-web` | `C:\Users\marius\repo\config-manager-web` |
+| 1 | `config-manager-core` | `$CM_REPO_BASE/config-manager-core` |
+| 2 | `cm-plugin-network` | `$CM_REPO_BASE/cm-plugin-network` |
+| 3 | `cm-plugin-update` | `$CM_REPO_BASE/cm-plugin-update` |
+| 4 | `config-manager-tui` | `$CM_REPO_BASE/config-manager-tui` |
+| 5 | `config-manager-web` | `$CM_REPO_BASE/config-manager-web` |
 
 The **reference repo** for identical files is `config-manager-core`.
 
@@ -39,7 +31,7 @@ Compare files that MUST be identical (or structurally identical) across all 5 re
 
 | File | Must Match | Notes |
 | --- | --- | --- |
-| `.markdownlint.json` | Byte-identical | `{"default":true,"MD013":false,"MD033":{"allowed_elements":["br"]},"MD024":{"siblings_only":true}}` |
+| `.markdownlint.json` | Byte-identical | Full 28-rule config (see `config-manager-core/.markdownlint.json` as reference) |
 | `.golangci.yml` | Structurally identical | v2 format; repo-specific linter exclusions are acceptable |
 | `dependabot.yml` | Structurally identical | gomod + github-actions, weekly schedule |
 | `.github/workflows/ci.yml` | Pattern-matching | Same actions versions, same steps; repo-specific test commands expected |
@@ -63,7 +55,7 @@ Each repo has `.github/copilot-instructions.md` with repo-specific context.
 For every repo, verify:
 
 - References the correct repo name and Go import path.
-- Architecture section matches the actual directory structure (`ls -Recurse` top-level dirs).
+- Architecture section matches the actual directory structure (`ls -R` or `tree` top-level dirs).
 - Plugin interface references (function signatures, interface names) are up-to-date with code.
 - Conventions section is consistent with the equivalent section in the other 4 repos.
 - Every file path mentioned in the document actually exists on disk.
@@ -98,7 +90,7 @@ For each repo's `README.md`:
 
 For each repo, execute:
 
-```powershell
+```bash
 cd {repo_path} && markdownlint-cli2 "**/*.md" "#node_modules"
 ```
 

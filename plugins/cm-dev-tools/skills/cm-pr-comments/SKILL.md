@@ -5,35 +5,9 @@ description: >
   repositories. Fetches open and closed threads, distinguishes human from bot
   feedback, assesses risk, presents a prioritized summary, and implements fixes
   with the full build → test → fleet-review cycle when required.
-triggers:
-  - check pr comments
-  - triage comments
-  - address review
-  - pr feedback
-  - resolve threads
-  - review comments
-  - pr comment triage
-  - handle comments
-  - fix pr comments
-repos:
-  - name: config-manager-core
-    path: C:\Users\marius\repo\config-manager-core
-    owner: msutara
-  - name: cm-plugin-network
-    path: C:\Users\marius\repo\cm-plugin-network
-    owner: msutara
-  - name: cm-plugin-update
-    path: C:\Users\marius\repo\cm-plugin-update
-    owner: msutara
-  - name: config-manager-tui
-    path: C:\Users\marius\repo\config-manager-tui
-    owner: msutara
-  - name: config-manager-web
-    path: C:\Users\marius\repo\config-manager-web
-    owner: msutara
-github_project:
-  id: PVT_kwHOAgHix84BPSxN
-  review_status_option: e70217cf
+  USE FOR: check pr comments, triage comments, address review, pr feedback,
+  resolve threads, review comments, pr comment triage, handle comments,
+  fix pr comments.
 ---
 
 # CM PR Comment Triage & Resolution
@@ -41,25 +15,61 @@ github_project:
 Systematic workflow for triaging and resolving PR review comments across all
 Config Manager repositories.
 
+## Project Context
+
+### Repos
+
+| # | Repo | Path | Owner |
+| --- | --- | --- | --- |
+| 1 | config-manager-core | `$CM_REPO_BASE/config-manager-core` | msutara |
+| 2 | cm-plugin-network | `$CM_REPO_BASE/cm-plugin-network` | msutara |
+| 3 | cm-plugin-update | `$CM_REPO_BASE/cm-plugin-update` | msutara |
+| 4 | config-manager-tui | `$CM_REPO_BASE/config-manager-tui` | msutara |
+| 5 | config-manager-web | `$CM_REPO_BASE/config-manager-web` | msutara |
+
+### GitHub Project
+
+| Key | Value |
+| --- | --- |
+| Project ID | `PVT_kwHOAgHix84BPSxN` |
+| Review status option | `e70217cf` |
+
 ## Step 1 — Fetch PR Comments
 
 Retrieve **all** review threads for the target PR — both open and resolved.
 
 ### Open (unresolved) threads
 
-```powershell
-gh pr view {PR_NUMBER} --repo msutara/{repo} --json reviewThreads `
-  --jq '.reviewThreads[] | select(.isResolved == false)'
+```bash
+gh api graphql -f query='query {
+  repository(owner: "msutara", name: "{repo}") {
+    pullRequest(number: {PR_NUMBER}) {
+      reviewThreads(first: 100) {
+        pageInfo { hasNextPage endCursor }
+        nodes {
+          isResolved
+          comments(first: 10) {
+            nodes { body path line author { login } }
+          }
+        }
+      }
+    }
+  }
+}' --jq '.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)'
 ```
+
+> **Pagination**: if `pageInfo.hasNextPage` is `true`, re-query with
+> `after: "{endCursor}"` to fetch remaining threads. Same applies to
+> `comments` if a thread has more than 10 replies.
 
 ### Closed (resolved) threads
 
 Closed threads from human reviewers often contain valid suggestions that were
 dismissed rather than implemented. Always inspect them.
 
-```powershell
-gh pr view {PR_NUMBER} --repo msutara/{repo} --json reviewThreads `
-  --jq '.reviewThreads[] | select(.isResolved == true)'
+```bash
+# Same query as above, filter for resolved threads:
+# select(.isResolved == true)
 ```
 
 ## Step 2 — Categorize Comments
@@ -158,10 +168,12 @@ For comments marked *safe to quick-fix*:
 
 After pushing a fix, resolve the corresponding review thread via GraphQL:
 
-```powershell
-$threadId = "{THREAD_NODE_ID}"
-$mutation = "mutation { resolveReviewThread(input: {threadId: ""$threadId""}) { thread { isResolved } } }"
-gh api graphql -f query=$mutation
+```bash
+gh api graphql -f query="mutation {
+  resolveReviewThread(input: {threadId: \"{THREAD_NODE_ID}\"}) {
+    thread { isResolved }
+  }
+}"
 ```
 
 ## Step 6 — Handle Unresolvable Comments
@@ -171,18 +183,25 @@ If a comment cannot be addressed in this PR cycle:
 1. Create a GitHub issue tracking the deferred work.
 2. Add the issue to the project board as **Backlog**.
 
-   ```powershell
-   $itemId = gh project item-add PVT_kwHOAgHix84BPSxN --owner msutara --url {ISSUE_URL} --format json | ConvertFrom-Json | Select-Object -ExpandProperty id
+   ```bash
+   itemId=$(gh project item-add 1 --owner msutara --url {ISSUE_URL} --format json | jq -r '.id')
    ```
 
-3. Resolve the thread with a comment linking to the new issue.
+3. Resolve the thread with a reference to the new issue.
 
-   ```powershell
-   gh api graphql -f query='mutation {
-     addComment(input: {subjectId: "{THREAD_NODE_ID}", body: "Deferred to #{ISSUE_NUMBER} — tracked on the project board."}) {
-       commentEdge { node { id } }
+   ```bash
+   gh api graphql -f query="mutation {
+     resolveReviewThread(input: {threadId: \"{THREAD_NODE_ID}\"}) {
+       thread { isResolved }
      }
-   }'
+   }"
+   ```
+
+   Then add a PR comment noting the deferral:
+
+   ```bash
+   gh pr comment {PR_NUMBER} --repo msutara/{repo} \
+     --body "Deferred to #{ISSUE_NUMBER} — tracked on the project board."
    ```
 
 ## Safety Rules
