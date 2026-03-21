@@ -13,13 +13,13 @@
     - `cm-parity-check` — TUI ↔ Web feature and security parity verification
     - `cm-pr-comments` — PR comment triage, risk assessment, thread resolution
     - `cm-docs-sync` — cross-repo documentation consistency audit
-  - 6 PowerShell helper scripts (validate, status, tag, sync, project board)
+  - 6 bash helper scripts (validate, status, tag, sync, project board)
   - 2 custom agents (CMDeveloper, CMReviewer)
 
 ### Design Decisions
 
-- **Zero external dependencies** — no Node.js, no MCP servers, no npm
-- Skills use built-in Copilot CLI agent types and PowerShell scripts
+- **No AVD coupling** — built on standard CLI agent platform capabilities (Copilot CLI / Claude Code)
+- Skills use bash scripts, custom agents, and built-in CLI agent types
 - Derived from analysis of 112 session checkpoints identifying the most
   repeated workflows (fleet review in 51%, PR lifecycle in 91%,
   build/test/lint in 99% of checkpoints)

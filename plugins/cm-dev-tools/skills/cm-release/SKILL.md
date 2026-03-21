@@ -5,54 +5,8 @@ description: >
   every repo (clean tree, build, test, lint), tags in dependency order, generates
   release notes from merged PRs, creates GitHub releases, verifies CI artifacts,
   and updates the project board. Supports semver strings and bump types.
-triggers:
-  - release
-  - tag repos
-  - create release
-  - bump version
-  - release all repos
-  - retag
-  - cm release
-  - new release
-  - publish release
-  - tag all
-  - version bump
-repos:
-  - name: config-manager-core
-    path: C:\Users\marius\repo\config-manager-core
-    owner: msutara
-    order: 1
-    role: central service
-  - name: cm-plugin-network
-    path: C:\Users\marius\repo\cm-plugin-network
-    owner: msutara
-    order: 2
-    role: network config plugin
-  - name: cm-plugin-update
-    path: C:\Users\marius\repo\cm-plugin-update
-    owner: msutara
-    order: 3
-    role: OS update plugin
-  - name: config-manager-tui
-    path: C:\Users\marius\repo\config-manager-tui
-    owner: msutara
-    order: 4
-    role: Bubble Tea TUI
-  - name: config-manager-web
-    path: C:\Users\marius\repo\config-manager-web
-    owner: msutara
-    order: 5
-    role: htmx web UI
-github_project:
-  id: PVT_kwHOAgHix84BPSxN
-  status_field_id: PVTSSF_lAHOAgHix84BPSxNzg9vkrk
-  done_option: "98236657"
-dependency_order:
-  - config-manager-core
-  - cm-plugin-network
-  - cm-plugin-update
-  - config-manager-tui
-  - config-manager-web
+  USE FOR: release, tag repos, create release, bump version, release all repos,
+  retag, cm release, new release, publish release, tag all, version bump.
 ---
 
 # CM Cross-Repo Release Workflow
@@ -60,6 +14,30 @@ dependency_order:
 Orchestrate a synchronized release across all 5 Config Manager repositories.
 Tags are applied in strict dependency order so that downstream `go.mod` references
 always resolve to published versions.
+
+## Project Context
+
+### Repos (in dependency order)
+
+| Order | Repo | Path | Owner | Role |
+| --- | --- | --- | --- | --- |
+| 1 | config-manager-core | `$CM_REPO_BASE/config-manager-core` | msutara | central service |
+| 2 | cm-plugin-network | `$CM_REPO_BASE/cm-plugin-network` | msutara | network config plugin |
+| 3 | cm-plugin-update | `$CM_REPO_BASE/cm-plugin-update` | msutara | OS update plugin |
+| 4 | config-manager-tui | `$CM_REPO_BASE/config-manager-tui` | msutara | Bubble Tea TUI |
+| 5 | config-manager-web | `$CM_REPO_BASE/config-manager-web` | msutara | htmx web UI |
+
+### Dependency Order
+
+Tags must be applied in this order: config-manager-core → cm-plugin-network → cm-plugin-update → config-manager-tui → config-manager-web.
+
+### GitHub Project
+
+| Key | Value |
+| --- | --- |
+| Project ID | `PVT_kwHOAgHix84BPSxN` |
+| Status field ID | `PVTSSF_lAHOAgHix84BPSxNzg9vkrk` |
+| Done option | `98236657` |
 
 ## Input
 
@@ -73,10 +51,10 @@ Accepted formats:
 - Bump type: `patch`, `minor`, or `major`
 
 If a bump type is given instead of an explicit version, calculate the next version
-from the latest git tag across all repos:
+from the latest tag on `config-manager-core` (the root dependency):
 
-```powershell
-$latestTag = git -C $repoPath describe --tags --abbrev=0 2>$null
+```bash
+latestTag=$(git -C "${CM_REPO_BASE:-$HOME/repo}/config-manager-core" describe --tags --abbrev=0 2>/dev/null)
 ```
 
 Parse with semver rules, increment the requested component, and reset lower
@@ -95,70 +73,60 @@ a matrix and report the first failure.
 | # | Check      | Command                  | Pass          |
 | - | ---------- | ------------------------ | ------------- |
 | 1 | Clean tree | `git status --porcelain` | Empty output  |
-| 2 | On `main`  | `git branch --show`      | Returns main  |
+| 2 | On `main`  | `git branch --show-current` | Returns main  |
 | 3 | Go build   | `go build ./...`         | Exit code 0   |
 | 4 | Go test    | `go test ./...`          | Exit code 0   |
 | 5 | Go lint    | `golangci-lint run`      | Exit code 0   |
 | 6 | MD lint    | `markdownlint-cli2`      | Exit code 0   |
 
-```powershell
-$base = "C:\Users\marius\repo"
-$repos = @(
-    @{ Name = "config-manager-core"
-       Path = "$base\config-manager-core" },
-    @{ Name = "cm-plugin-network"
-       Path = "$base\cm-plugin-network" },
-    @{ Name = "cm-plugin-update"
-       Path = "$base\cm-plugin-update" },
-    @{ Name = "config-manager-tui"
-       Path = "$base\config-manager-tui" },
-    @{ Name = "config-manager-web"
-       Path = "$base\config-manager-web" }
+```bash
+base="${CM_REPO_BASE:-$HOME/repo}"
+repos=(
+    "config-manager-core"
+    "cm-plugin-network"
+    "cm-plugin-update"
+    "config-manager-tui"
+    "config-manager-web"
 )
 
-foreach ($repo in $repos) {
-    Push-Location $repo.Path
-    $n = $repo.Name
+for n in "${repos[@]}"; do
+    pushd "$base/$n" > /dev/null
 
-    $dirty = git status --porcelain
-    if ($dirty) {
-        Write-Error "❌ ${n}: dirty tree"
-        Pop-Location; return
-    }
+    dirty=$(git status --porcelain)
+    if [[ -n "$dirty" ]]; then
+        echo "❌ ${n}: dirty tree" >&2
+        popd > /dev/null; exit 1
+    fi
 
-    $branch = git branch --show-current
-    if ($branch -ne "main") {
-        Write-Error "❌ ${n}: on '$branch'"
-        Pop-Location; return
-    }
+    branch=$(git branch --show-current)
+    if [[ "$branch" != "main" ]]; then
+        echo "❌ ${n}: on '$branch'" >&2
+        popd > /dev/null; exit 1
+    fi
 
-    go build ./...
-    if ($LASTEXITCODE -ne 0) {
-        Write-Error "❌ ${n}: go build failed"
-        Pop-Location; return
-    }
+    if ! go build ./...; then
+        echo "❌ ${n}: go build failed" >&2
+        popd > /dev/null; exit 1
+    fi
 
-    go test ./...
-    if ($LASTEXITCODE -ne 0) {
-        Write-Error "❌ ${n}: go test failed"
-        Pop-Location; return
-    }
+    if ! go test ./...; then
+        echo "❌ ${n}: go test failed" >&2
+        popd > /dev/null; exit 1
+    fi
 
-    golangci-lint run
-    if ($LASTEXITCODE -ne 0) {
-        Write-Error "❌ ${n}: lint failed"
-        Pop-Location; return
-    }
+    if ! golangci-lint run; then
+        echo "❌ ${n}: lint failed" >&2
+        popd > /dev/null; exit 1
+    fi
 
-    markdownlint-cli2 "**/*.md" "#node_modules"
-    if ($LASTEXITCODE -ne 0) {
-        Write-Error "❌ ${n}: mdlint failed"
-        Pop-Location; return
-    }
+    if ! markdownlint-cli2 "**/*.md" "#node_modules"; then
+        echo "❌ ${n}: mdlint failed" >&2
+        popd > /dev/null; exit 1
+    fi
 
-    Write-Host "✅ ${n}: all checks passed"
-    Pop-Location
-}
+    echo "✅ ${n}: all checks passed"
+    popd > /dev/null
+done
 ```
 
 ### Failure reporting
@@ -194,16 +162,17 @@ plugins import it, and tui/web import plugins + core.
 5. config-manager-web   → tag + push
 ```
 
-```powershell
-$version = "v0.5.0"  # from user input
+```bash
+# Requires $base and $repos from Phase 1 validation above
+version="v0.5.0"  # from user input
 
-foreach ($repo in $repos) {
-    Push-Location $repo.Path
-    git tag $version
-    git push origin $version
-    Write-Host "🏷️  Tagged $($repo.Name) → $version"
-    Pop-Location
-}
+for n in "${repos[@]}"; do
+    pushd "$base/$n" > /dev/null
+    git tag "$version"
+    git push origin "$version"
+    echo "🏷️  Tagged ${n} → $version"
+    popd > /dev/null
+done
 ```
 
 ### Re-tagging (deleting an existing tag)
@@ -211,24 +180,30 @@ foreach ($repo in $repos) {
 If the tag already exists on a repo, **require explicit user approval** before
 deleting and re-creating it:
 
-```powershell
-$existingTag = git -C $repo.Path tag -l $version
-if ($existingTag) {
+```bash
+# Re-tagging snippet — requires $base and $version from Phase 2 context
+# Set $n to the repo name (e.g., n="config-manager-core")
+existingTag=$(git -C "$base/$n" tag -l "$version")
+if [[ -n "$existingTag" ]]; then
     # ⚠️ MUST ask user for confirmation before proceeding
-    git -C $repo.Path tag -d $version
-    git -C $repo.Path push origin --delete $version
-    git -C $repo.Path tag $version
-    git -C $repo.Path push origin $version
-}
+    git -C "$base/$n" tag -d "$version"
+    git -C "$base/$n" push origin --delete "$version"
+    git -C "$base/$n" tag "$version"
+    git -C "$base/$n" push origin "$version"
+fi
 ```
 
 ## Phase 3 — Release Notes Generation
 
 For each repo, generate release notes from commits since the previous tag:
 
-```powershell
-$prevTag = git describe --tags --abbrev=0 HEAD~1 2>$null
-$log = git log "$prevTag..HEAD" --oneline --no-merges
+```bash
+prevTag=$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || true)
+if [ -z "$prevTag" ]; then
+  log=$(git log --oneline --no-merges)
+else
+  log=$(git log "$prevTag..HEAD" --oneline --no-merges)
+fi
 ```
 
 Format as markdown with two sections:
@@ -263,15 +238,16 @@ Sort commits into groups by conventional-commit prefix:
 
 Create a GitHub release for each repo using the generated notes:
 
-```powershell
-foreach ($repo in $repos) {
-    $notes = # assembled from Phase 3
-    gh release create $version `
-        --repo "msutara/$($repo.Name)" `
-        --title $version `
-        --notes $notes
-    Write-Host "📦 Release created: https://github.com/msutara/$($repo.Name)/releases/tag/$version"
-}
+```bash
+# Requires $repos and $version from Phase 2 above
+for n in "${repos[@]}"; do
+    notes="Release $version — see merged PRs for details"
+    gh release create "$version" \
+        --repo "msutara/$n" \
+        --title "$version" \
+        --notes "$notes"
+    echo "📦 Release created: https://github.com/msutara/$n/releases/tag/$version"
+done
 ```
 
 ## Phase 5 — Release Workflow Verification
@@ -290,33 +266,37 @@ The core repo builds `.deb` packages for three architectures:
 
 ### Verification steps
 
-```powershell
-foreach ($repo in $repos) {
-    # Check latest release workflow run
-    $run = gh run list `
-        --repo "msutara/$($repo.Name)" `
-        --workflow "release.yml" `
-        --limit 1 `
-        --json status,conclusion,databaseId
+```bash
+# Requires $repos and $version from Phase 1 validation above
+for n in "${repos[@]}"; do
+    run=$(gh run list \
+        --repo "msutara/$n" \
+        --workflow "release.yml" \
+        --limit 1 \
+        --json status,conclusion,databaseId)
+
+    status=$(echo "$run" | jq -r '.[0].status')
+    conclusion=$(echo "$run" | jq -r '.[0].conclusion')
+    dbId=$(echo "$run" | jq -r '.[0].databaseId')
 
     # Wait for completion if still in progress
-    if ($run.status -eq "in_progress") {
-        gh run watch $run.databaseId --repo "msutara/$($repo.Name)"
-    }
+    if [[ "$status" == "in_progress" ]]; then
+        gh run watch "$dbId" --repo "msutara/$n"
+    fi
 
     # Verify conclusion
-    if ($run.conclusion -ne "success") {
-        Write-Error "❌ $($repo.Name): release workflow failed"
-    }
+    if [[ "$conclusion" != "success" ]]; then
+        echo "❌ ${n}: release workflow failed" >&2
+    fi
 
     # For core repo, verify .deb artifacts are attached
-    if ($repo.Name -eq "config-manager-core") {
-        $assets = gh release view $version `
-            --repo "msutara/$($repo.Name)" `
-            --json assets --jq '.assets[].name'
+    if [[ "$n" == "config-manager-core" ]]; then
+        assets=$(gh release view "$version" \
+            --repo "msutara/$n" \
+            --json assets --jq '.assets[].name')
         # Expect 3 .deb files
-    }
-}
+    fi
+done
 ```
 
 If any workflow fails, report the failure and provide the run URL for
@@ -328,30 +308,31 @@ investigation. Do **not** mark the release as complete.
 
 Set all release-related items to **Done**:
 
-```powershell
-# Query items linked to the release milestone/version
-# Update status field to Done
-gh api graphql -f query='
+```bash
+# Replace $ITEM_ID with the actual project item ID for each release item
+ITEM_ID="PVTI_..."  # from gh project item-list or item-add
+gh api graphql -f query="
   mutation {
     updateProjectV2ItemFieldValue(
       input: {
-        projectId: "PVT_kwHOAgHix84BPSxN"
-        itemId: "$ITEM_ID"
-        fieldId: "PVTSSF_lAHOAgHix84BPSxNzg9vkrk"
-        value: { singleSelectOptionId: "98236657" }
+        projectId: \"PVT_kwHOAgHix84BPSxN\"
+        itemId: \"$ITEM_ID\"
+        fieldId: \"PVTSSF_lAHOAgHix84BPSxNzg9vkrk\"
+        value: { singleSelectOptionId: \"98236657\" }
       }
     ) { projectV2Item { id } }
-  }'
+  }"
 ```
 
 ### Pull latest tags locally
 
-```powershell
-foreach ($repo in $repos) {
-    Push-Location $repo.Path
+```bash
+# Requires $base and $repos from Phase 1/2 above
+for n in "${repos[@]}"; do
+    pushd "$base/$n" > /dev/null
     git fetch --tags
-    Pop-Location
-}
+    popd > /dev/null
+done
 ```
 
 ### Print release summary

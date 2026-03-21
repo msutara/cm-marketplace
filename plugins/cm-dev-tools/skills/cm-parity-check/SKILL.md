@@ -4,19 +4,8 @@ description: >
   Verify functional, security, test, and documentation parity between
   config-manager-tui (Bubble Tea terminal UI) and config-manager-web
   (htmx + Go templates web UI). Reports gaps without making changes.
-trigger_phrases:
-  - parity check
-  - check parity
-  - tui web sync
-  - compare tui web
-  - parity audit
-  - ui parity
-  - check ui parity
-  - verify parity
-  - parity report
-repos:
-  tui: C:\Users\marius\repo\config-manager-tui
-  web: C:\Users\marius\repo\config-manager-web
+  USE FOR: parity check, check parity, tui web sync, compare tui web,
+  parity audit, ui parity, check ui parity, verify parity, parity report.
 ---
 
 # TUI ↔ Web Parity Check
@@ -43,8 +32,8 @@ The Config Manager project enforces a **permanent parity rule**:
 
 | UI | Path | Stack |
 | --- | --- | --- |
-| TUI | `C:\Users\marius\repo\config-manager-tui` | Bubble Tea terminal UI |
-| Web | `C:\Users\marius\repo\config-manager-web` | htmx + Go templates web UI |
+| TUI | `$CM_REPO_BASE/config-manager-tui` | Bubble Tea terminal UI |
+| Web | `$CM_REPO_BASE/config-manager-web` | htmx + Go templates web UI |
 
 ## Procedure
 
@@ -172,7 +161,7 @@ Compile all findings into a single report with this structure:
 
 Ask the user whether to create GitHub issues for each gap. If approved, run:
 
-```powershell
+```bash
 gh issue create --repo msutara/config-manager-web --title "Parity: Add {feature}" --body "{details}"
 ```
 

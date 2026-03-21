@@ -1,13 +1,14 @@
 node_modules/
-__pycache__/
-*.pyc
-*.pyo
-*.egg-info/
-build/
+
+# Environment
 .env
 .env.*
+
+# OS
 .DS_Store
 Thumbs.db
+
+# Logs and output
 logs/
 reports/
 *.jsonl
