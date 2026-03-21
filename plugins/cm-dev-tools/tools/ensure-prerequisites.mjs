@@ -13,6 +13,26 @@
  */
 
 import { execFileSync } from "node:child_process";
+import { existsSync } from "node:fs";
+
+const isWindows = process.platform === "win32";
+
+// ── Windows fallback paths ───────────────────────────────────────────────────
+// On Windows, tools installed via Git-for-Windows, winget, scoop, or chocolatey
+// may not be on the default PATH. We check common locations as fallbacks.
+
+/** @type {Record<string, string[]>} */
+const windowsFallbacks = {
+  bash: [
+    "C:\\Program Files\\Git\\bin\\bash.exe",
+    "C:\\Program Files\\Git\\usr\\bin\\bash.exe",
+    "C:\\Program Files (x86)\\Git\\bin\\bash.exe",
+  ],
+  jq: [
+    "C:\\ProgramData\\chocolatey\\bin\\jq.exe",
+    `${process.env.USERPROFILE}\\scoop\\shims\\jq.exe`,
+  ],
+};
 
 // ── Colour helpers (respects NO_COLOR / CI) ──────────────────────────────────
 
@@ -96,6 +116,39 @@ function tryExec(cmd, args) {
   }
 }
 
+/**
+ * Try the default command first, then Windows fallback paths if available.
+ * Fallback paths are absolute, so we use shell: false to avoid quoting issues.
+ *
+ * @param {string} name - Tool name (key into windowsFallbacks)
+ * @param {string} cmd  - Default command
+ * @param {string[]} args
+ * @returns {{ ok: true, stdout: string, resolvedCmd: string } | { ok: false, reason: string }}
+ */
+function tryExecWithFallback(name, cmd, args) {
+  const result = tryExec(cmd, args);
+  if (result.ok) return { ...result, resolvedCmd: cmd };
+
+  if (isWindows && windowsFallbacks[name]) {
+    for (const fallback of windowsFallbacks[name]) {
+      if (!existsSync(fallback)) continue;
+      try {
+        const stdout = execFileSync(fallback, args, {
+          stdio: ["pipe", "pipe", "pipe"],
+          timeout: 10_000,
+        })
+          .toString()
+          .trim();
+        return { ok: true, stdout, resolvedCmd: fallback };
+      } catch {
+        // fallback failed, try next
+      }
+    }
+  }
+
+  return result;
+}
+
 // ── Prerequisite definitions ─────────────────────────────────────────────────
 
 /**
@@ -160,7 +213,7 @@ log(colour.bold("\n🔍 cm-marketplace prerequisite check\n"));
 let failures = 0;
 
 for (const prereq of prerequisites) {
-  const result = tryExec(prereq.cmd, prereq.args);
+  const result = tryExecWithFallback(prereq.name, prereq.cmd, prereq.args);
 
   if (!result.ok) {
     const reason =
@@ -196,8 +249,9 @@ for (const prereq of prerequisites) {
     continue;
   }
 
+  const via = result.resolvedCmd !== prereq.cmd ? colour.dim(` (${result.resolvedCmd})`) : "";
   log(
-    `  ${colour.green("✓")} ${colour.bold(prereq.name)} ${colour.dim(`${version.major}.${version.minor}`)}`,
+    `  ${colour.green("✓")} ${colour.bold(prereq.name)} ${colour.dim(`${version.major}.${version.minor}`)}${via}`,
   );
 }
 
