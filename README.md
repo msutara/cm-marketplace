@@ -159,7 +159,7 @@ cm-marketplace/
 ├── README.md                         # This file
 ├── RELEASES.md                       # Version history
 ├── CONTRIBUTING.md                   # How to add plugins/skills
-├── package.json                      # Lint tooling (markdownlint-cli2)
+├── package.json                      # Lint tooling (markdownlint + Biome)
 ├── package-lock.json                 # Locked dependency versions
 ├── .editorconfig                     # Editor formatting rules
 ├── .gitattributes                    # LF enforcement for *.sh
@@ -169,8 +169,8 @@ cm-marketplace/
 
 ## Before Committing
 
-1. **Lint** — `npm run lint` (markdownlint must pass)
-2. **Fix** — `npm run lint:fix` for auto-fixable issues
+1. **Lint** — `npm run lint:all` (markdownlint + Biome JS must pass)
+2. **Fix** — `npm run lint:fix` / `npm run lint:js:fix` for auto-fixable issues
 3. **Verify JSON** — marketplace.json and plugin.json must be valid
 
 ## Updating the Plugin

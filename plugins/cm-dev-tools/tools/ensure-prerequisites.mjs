@@ -11,9 +11,9 @@
  *   0 — all prerequisites satisfied (possibly after auto-install)
  *   1 — one or more prerequisites not met (missing, too old, or unparseable)
  *
- * Usage:
- *   node ensure-prerequisites.mjs            # check only
- *   node ensure-prerequisites.mjs --install  # check + auto-install missing
+ * Usage (from repo root):
+ *   node plugins/cm-dev-tools/tools/ensure-prerequisites.mjs            # check only
+ *   node plugins/cm-dev-tools/tools/ensure-prerequisites.mjs --install  # check + auto-install missing
  */
 
 import { execFileSync, execSync } from "node:child_process";
@@ -28,6 +28,8 @@ const autoInstall = process.argv.includes("--install");
 // On Windows, tools installed via Git-for-Windows, winget, scoop, or chocolatey
 // may not be on the default PATH. We check common locations as fallbacks.
 
+const userHome = process.env.USERPROFILE || process.env.HOME || "";
+
 /** @type {Record<string, string[]>} */
 const windowsFallbacks = {
   bash: [
@@ -37,15 +39,15 @@ const windowsFallbacks = {
   ],
   jq: [
     "C:\\ProgramData\\chocolatey\\bin\\jq.exe",
-    `${process.env.USERPROFILE}\\scoop\\shims\\jq.exe`,
+    ...(userHome ? [`${userHome}\\scoop\\shims\\jq.exe`] : []),
   ],
   gh: [
     "C:\\Program Files\\GitHub CLI\\gh.exe",
     "C:\\Program Files (x86)\\GitHub CLI\\gh.exe",
-    `${process.env.USERPROFILE}\\scoop\\shims\\gh.exe`,
+    ...(userHome ? [`${userHome}\\scoop\\shims\\gh.exe`] : []),
   ],
   shellcheck: [
-    `${process.env.USERPROFILE}\\scoop\\shims\\shellcheck.exe`,
+    ...(userHome ? [`${userHome}\\scoop\\shims\\shellcheck.exe`] : []),
     "C:\\ProgramData\\chocolatey\\bin\\shellcheck.exe",
   ],
 };

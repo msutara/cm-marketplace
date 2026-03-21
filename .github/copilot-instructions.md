@@ -30,6 +30,7 @@ The marketplace currently supports plugins with skills, agents, and bash helper 
 | `npm run lint` | Markdown files (markdownlint) |
 | `npm run lint:js` | JavaScript/TypeScript files (Biome) |
 | `npm run lint:fix` | Auto-fix markdown issues |
+| `npm run lint:js:fix` | Auto-fix JS/TS issues (Biome) |
 | `npm run lint:all` | Runs both `lint` + `lint:js` |
 
 ## Markdown Standards
