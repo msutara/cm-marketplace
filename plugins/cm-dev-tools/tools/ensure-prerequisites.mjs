@@ -55,7 +55,7 @@ const windowsFallbacks = {
 // ── Colour helpers (respects NO_COLOR / CI) ──────────────────────────────────
 
 const colour =
-  !process.env.NO_COLOR && process.stderr.isTTY
+  !process.env.NO_COLOR && !process.env.CI && process.stderr.isTTY
     ? {
         green: (s) => `\x1b[32m${s}\x1b[0m`,
         red: (s) => `\x1b[31m${s}\x1b[0m`,
@@ -294,9 +294,9 @@ let failures = 0;
 for (const prereq of prerequisites) {
   let result = tryExecWithFallback(prereq.name, prereq.cmd, prereq.args);
 
-  // If missing or failed, attempt auto-install then re-check
+  // If missing, attempt auto-install then re-check
   let didInstall = false;
-  if (!result.ok && autoInstall) {
+  if (!result.ok && result.reason === "not_found" && autoInstall) {
     didInstall = tryInstall(prereq);
     if (didInstall) {
       result = tryExecWithFallback(prereq.name, prereq.cmd, prereq.args);
