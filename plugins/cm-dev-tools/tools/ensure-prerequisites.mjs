@@ -1,21 +1,23 @@
 #!/usr/bin/env node
 
 /**
- * ensure-prerequisites.mjs — preflight check for cm-marketplace tools.
+ * ensure-prerequisites.mjs — preflight check and installer for cm-marketplace.
  *
  * Verifies that every CLI tool required by the marketplace scripts and skills
- * is installed and meets the minimum version. Outputs a coloured summary to
- * stderr so it can run as a session-start hook without polluting stdout.
+ * is installed and meets the minimum version. Automatically installs missing
+ * tools when possible. Outputs a coloured summary to stderr.
  *
  * Exit codes:
- *   0 — all prerequisites satisfied
- *   1 — one or more prerequisites missing or below minimum version
+ *   0 — all prerequisites satisfied (possibly after auto-install)
+ *   1 — one or more prerequisites still missing after install attempts
  */
 
-import { execFileSync } from "node:child_process";
+import { execFileSync, execSync } from "node:child_process";
 import { existsSync } from "node:fs";
 
 const isWindows = process.platform === "win32";
+const isMac = process.platform === "darwin";
+const isLinux = process.platform === "linux";
 
 // ── Windows fallback paths ───────────────────────────────────────────────────
 // On Windows, tools installed via Git-for-Windows, winget, scoop, or chocolatey
@@ -157,7 +159,8 @@ function tryExecWithFallback(name, cmd, args) {
  * @property {string}   cmd        - Command to invoke
  * @property {string[]} args       - Arguments for version output
  * @property {{ major: number, minor: number }} minVersion
- * @property {string}   installHint - One-line install instruction
+ * @property {string}   installHint - One-line manual install instruction
+ * @property {{ win?: string, mac?: string, linux?: string }} [installCmd] - Auto-install commands
  */
 
 /** @type {Prerequisite[]} */
@@ -168,6 +171,10 @@ const prerequisites = [
     args: ["--version"],
     minVersion: { major: 4, minor: 0 },
     installHint: "brew install bash (macOS) · native on Linux · Git Bash on Windows",
+    installCmd: {
+      win: "winget install --id Git.Git -e --accept-source-agreements --accept-package-agreements",
+      mac: "brew install bash",
+    },
   },
   {
     name: "git",
@@ -175,6 +182,11 @@ const prerequisites = [
     args: ["--version"],
     minVersion: { major: 2, minor: 30 },
     installHint: "https://git-scm.com/downloads",
+    installCmd: {
+      win: "winget install --id Git.Git -e --accept-source-agreements --accept-package-agreements",
+      mac: "brew install git",
+      linux: "sudo apt-get install -y git || sudo yum install -y git",
+    },
   },
   {
     name: "node",
@@ -182,6 +194,7 @@ const prerequisites = [
     args: ["--version"],
     minVersion: { major: 20, minor: 0 },
     installHint: "https://nodejs.org/",
+    // node is running this script, so if we got here it's installed
   },
   {
     name: "jq",
@@ -189,6 +202,11 @@ const prerequisites = [
     args: ["--version"],
     minVersion: { major: 1, minor: 6 },
     installHint: "apt install jq · brew install jq · winget install jqlang.jq",
+    installCmd: {
+      win: "winget install --id jqlang.jq -e --accept-source-agreements --accept-package-agreements",
+      mac: "brew install jq",
+      linux: "sudo apt-get install -y jq || sudo yum install -y jq",
+    },
   },
   {
     name: "gh",
@@ -196,15 +214,61 @@ const prerequisites = [
     args: ["--version"],
     minVersion: { major: 2, minor: 0 },
     installHint: "https://cli.github.com/",
+    installCmd: {
+      win: "winget install --id GitHub.cli -e --accept-source-agreements --accept-package-agreements",
+      mac: "brew install gh",
+      linux: "sudo apt-get install -y gh || sudo dnf install -y gh",
+    },
   },
   {
     name: "shellcheck",
     cmd: "shellcheck",
     args: ["--version"],
     minVersion: { major: 0, minor: 9 },
-    installHint: "apt install shellcheck · brew install shellcheck",
+    installHint: "apt install shellcheck · brew install shellcheck · scoop install shellcheck",
+    installCmd: {
+      win: "scoop install shellcheck",
+      mac: "brew install shellcheck",
+      linux: "sudo apt-get install -y shellcheck",
+    },
   },
 ];
+
+// ── Auto-install ─────────────────────────────────────────────────────────────
+
+/**
+ * Get the install command for the current platform, if available.
+ * @param {Prerequisite} prereq
+ * @returns {string | undefined}
+ */
+function getInstallCmd(prereq) {
+  if (!prereq.installCmd) return undefined;
+  if (isWindows) return prereq.installCmd.win;
+  if (isMac) return prereq.installCmd.mac;
+  if (isLinux) return prereq.installCmd.linux;
+  return undefined;
+}
+
+/**
+ * Attempt to install a missing prerequisite. Returns true on success.
+ * @param {Prerequisite} prereq
+ * @returns {boolean}
+ */
+function tryInstall(prereq) {
+  const cmd = getInstallCmd(prereq);
+  if (!cmd) return false;
+
+  log(`    ${colour.yellow("⟳")} Installing ${prereq.name}...`);
+  try {
+    execSync(cmd, { stdio: ["pipe", "pipe", "pipe"], timeout: 120_000 });
+    log(`    ${colour.green("✓")} Installed successfully`);
+    return true;
+  } catch (err) {
+    const stderr = err.stderr?.toString().trim().split("\n")[0] ?? "";
+    log(`    ${colour.red("✗")} Install failed${stderr ? `: ${stderr}` : ""}`);
+    return false;
+  }
+}
 
 // ── Main ─────────────────────────────────────────────────────────────────────
 
@@ -213,7 +277,15 @@ log(colour.bold("\n🔍 cm-marketplace prerequisite check\n"));
 let failures = 0;
 
 for (const prereq of prerequisites) {
-  const result = tryExecWithFallback(prereq.name, prereq.cmd, prereq.args);
+  let result = tryExecWithFallback(prereq.name, prereq.cmd, prereq.args);
+
+  // If missing or failed, attempt auto-install then re-check
+  if (!result.ok) {
+    const installed = tryInstall(prereq);
+    if (installed) {
+      result = tryExecWithFallback(prereq.name, prereq.cmd, prereq.args);
+    }
+  }
 
   if (!result.ok) {
     const reason =
@@ -223,7 +295,7 @@ for (const prereq of prerequisites) {
           ? "not found"
           : "execution failed";
     log(`  ${colour.red("✗")} ${colour.bold(prereq.name)} — ${reason}`);
-    log(`    ${colour.dim(`Install: ${prereq.installHint}`)}`);
+    log(`    ${colour.dim(`Manual install: ${prereq.installHint}`)}`);
     failures++;
     continue;
   }
