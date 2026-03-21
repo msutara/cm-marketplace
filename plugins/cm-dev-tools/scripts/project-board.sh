@@ -116,7 +116,8 @@ if [ -n "$URL" ]; then
       echo "  ✅ Item already on board (item: $_existing_id)"
       ADDED_ITEM_ID="$_existing_id"
     elif [ -z "$STATUS" ]; then
-      echo "  ❌ Item not found on board and no --status fallback." >&2
+      echo "  ❌ Failed to add item to project and could not find an existing item for URL '$URL'." >&2
+      echo "      Verify the URL is correct, confirm gh auth and project permissions, then retry." >&2
       exit 1
     fi
   fi

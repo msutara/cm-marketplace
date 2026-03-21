@@ -17,9 +17,11 @@ if [[ ! "$SOURCE_MODULE" =~ ^[a-zA-Z0-9][a-zA-Z0-9._/-]*$ ]] || [[ "$SOURCE_MODU
   echo "Error: Invalid source module format: $SOURCE_MODULE" >&2
   exit 1
 fi
-# Allow semver, pseudo-versions (v0.0.0-...-hash), and build metadata
-if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+[a-zA-Z0-9._+-]*$ ]]; then
-  echo "Error: Invalid version format: $VERSION (expected vX.Y.Z with optional pre-release)" >&2
+# Allow semver (vX.Y.Z[-prerelease][+build]) and Go pseudo-versions (vX.Y.Z-yyyymmddhhmmss-abcdefabcdef)
+semver_re='^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$'
+pseudo_re='^v[0-9]+\.[0-9]+\.[0-9]+-(0\.)?[0-9]{14}-[0-9a-f]{7,}$'
+if [[ ! "$VERSION" =~ $semver_re && ! "$VERSION" =~ $pseudo_re ]]; then
+  echo "Error: Invalid version format: $VERSION (expected semver vX.Y.Z[-prerelease][+build] or Go pseudo-version)" >&2
   exit 1
 fi
 
