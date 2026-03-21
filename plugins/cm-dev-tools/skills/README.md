@@ -5,7 +5,7 @@
 | I want to... | Use this skill |
 | --- | --- |
 | Create a new CM plugin repository from scratch | [scaffold-plugin](scaffold-plugin/SKILL.md) |
-| Run multi-perspective code review (10 agents) | [cm-fleet-review](cm-fleet-review/SKILL.md) |
+| Run multi-perspective code review (11 agents) | [cm-fleet-review](cm-fleet-review/SKILL.md) |
 | Release all repos with consistent versioning | [cm-release](cm-release/SKILL.md) |
 | Run the full PR lifecycle (build→fleet→push→PR) | [cm-pr-lifecycle](cm-pr-lifecycle/SKILL.md) |
 | Check TUI ↔ Web feature and security parity | [cm-parity-check](cm-parity-check/SKILL.md) |
@@ -17,7 +17,7 @@
 ### Development
 
 - **scaffold-plugin** — one-shot new plugin repo creation with all boilerplate
-- **cm-fleet-review** — 10-agent multi-model code review with mandatory checklists
+- **cm-fleet-review** — 11-agent multi-model code review with mandatory checklists
 - **cm-pr-lifecycle** — full PR cycle from implementation to merge
 
 ### Quality

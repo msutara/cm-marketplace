@@ -11,9 +11,13 @@ fi
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=lib/load-project.sh
-source "$SCRIPT_DIR/lib/load-project.sh"
+source "$SCRIPT_DIR/lib/load-project.sh" || exit 1
 
 if [ "${1:-}" ]; then
+  if [[ ! "$1" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then
+    echo "Error: Invalid repo name: $1" >&2
+    exit 1
+  fi
   REPOS=("$1")
 fi
 

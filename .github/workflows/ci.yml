@@ -19,8 +19,13 @@ jobs:
       - uses: actions/checkout@v6
       - name: Reject CRLF in shell scripts
         run: |
-          if grep -rP --include='*.sh' '\r' plugins/; then
+          rc=0
+          grep -rP --include='*.sh' '\r' plugins/ || rc=$?
+          if [ "$rc" -eq 0 ]; then
             echo "::error::CRLF detected in shell scripts"
+            exit 1
+          elif [ "$rc" -ne 1 ]; then
+            echo "::error::CRLF scan failed (grep exit code $rc)"
             exit 1
           fi
       - name: ShellCheck
@@ -30,13 +35,14 @@ jobs:
           for dir in plugins/*/scripts; do
             if [ -d "$dir" ]; then
               echo "Checking $dir..."
-              cd "$dir"
-              shopt -s nullglob
-              files=(*.sh lib/*.sh)
-              shopt -u nullglob
-              if [ ${#files[@]} -gt 0 ]; then
-                shellcheck -x "${files[@]}"
-              fi
-              cd "$GITHUB_WORKSPACE"
+              (
+                cd "$dir" || exit 1
+                shopt -s nullglob
+                files=(*.sh lib/*.sh)
+                shopt -u nullglob
+                if [ ${#files[@]} -gt 0 ]; then
+                  shellcheck -x "${files[@]}"
+                fi
+              ) || exit 1
             fi
           done

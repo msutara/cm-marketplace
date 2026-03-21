@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # project-board.sh — Add/update items on the CM GitHub project board
-# Usage: ./project-board.sh --url <github-url> [--status <Backlog|InProgress|Review|Done>]
-#        ./project-board.sh --item-id <id> --status <status>
+# Usage: ./project-board.sh --url <github-url> [--status <status-from-manifest>]
+#        ./project-board.sh --item-id <id> --status <status-from-manifest>
 set -euo pipefail
 
 _cleanup_files=()
@@ -36,8 +36,9 @@ ITEM_ID=""
 
 usage() {
   echo "Usage:" >&2
-  echo "  $(basename "$0") --url <github-url> [--status <Backlog|InProgress|Review|Done>]" >&2
+  echo "  $(basename "$0") --url <github-url> [--status <status>]" >&2
   echo "  $(basename "$0") --item-id <id> --status <status>" >&2
+  echo "  Available statuses are defined in .cm/project.json" >&2
 }
 
 while [[ $# -gt 0 ]]; do
@@ -56,8 +57,12 @@ while [[ $# -gt 0 ]]; do
       if [[ $# -lt 2 || -z "${2:-}" ]]; then
         echo "Error: --item-id requires a non-empty value." >&2; usage; exit 1
       fi
-      ITEM_ID="$2"; shift 2 ;;
-    *) echo "Unknown option: $1" >&2; usage; exit 1 ;;
+      ITEM_ID="$2"
+      if [[ ! "$ITEM_ID" =~ ^[A-Za-z0-9+/=_-]+$ ]]; then
+        echo "Error: --item-id contains invalid characters: $ITEM_ID (expected base64-safe: [A-Za-z0-9+/=_-])" >&2; exit 1
+      fi
+      shift 2 ;;
+    *) echo "Error: unknown option: $1" >&2; usage; exit 1 ;;
   esac
 done
 
@@ -67,8 +72,20 @@ if [[ -z "$URL" && -z "$ITEM_ID" && -z "$STATUS" ]]; then
   exit 1
 fi
 
+if [[ -n "$URL" && -n "$ITEM_ID" ]]; then
+  echo "Error: --url and --item-id are mutually exclusive. Provide one identifier, not both." >&2
+  usage
+  exit 1
+fi
+
 if [[ -n "$STATUS" && -z "$URL" && -z "$ITEM_ID" ]]; then
   echo "Error: --status requires either --url or --item-id to identify the item." >&2
+  usage
+  exit 1
+fi
+
+if [[ -n "$ITEM_ID" && -z "$STATUS" && -z "$URL" ]]; then
+  echo "Error: --item-id requires --status to specify the desired state." >&2
   usage
   exit 1
 fi
@@ -91,8 +108,17 @@ if [ -n "$URL" ]; then
     fi
     echo "  ✅ Added to project (item: ${ADDED_ITEM_ID:-unknown})"
   else
-    # Item may already exist — fall through to item-list lookup for status update
-    echo "  ⚠️  item-add failed (may already exist): $(cat "$_gh_add_err")"
+    # Item may already exist — verify via item-list lookup
+    echo "  ⚠️  item-add failed (may already exist): $(<"$_gh_add_err")"
+    _existing_id=$(gh project item-list "$PROJECT_NUMBER" --owner "$OWNER" --limit 500 --format json 2>/dev/null \
+      | jq -r --arg url "$URL" '.items[] | select(.content.url == $url) | .id' 2>/dev/null || true)
+    if [ -n "$_existing_id" ]; then
+      echo "  ✅ Item already on board (item: $_existing_id)"
+      ADDED_ITEM_ID="$_existing_id"
+    elif [ -z "$STATUS" ]; then
+      echo "  ❌ Item not found on board and no --status fallback." >&2
+      exit 1
+    fi
   fi
 fi
 
@@ -100,7 +126,11 @@ fi
 if [ -n "$STATUS" ]; then
   option_id="${STATUS_OPTIONS[$STATUS]:-}"
   if [ -z "$option_id" ]; then
-    echo "Error: Invalid status '$STATUS'. Available: ${!STATUS_OPTIONS[*]}" >&2
+    if [ ${#STATUS_OPTIONS[@]} -eq 0 ]; then
+      echo "Error: Invalid status '$STATUS'. No status options defined in manifest project_board.statuses." >&2
+    else
+      echo "Error: Invalid status '$STATUS'. Available: ${!STATUS_OPTIONS[*]}" >&2
+    fi
     exit 1
   fi
 
@@ -114,6 +144,25 @@ if [ -n "$STATUS" ]; then
   fi
 
   if [ -n "$ITEM_ID" ]; then
+    # Validate ALL IDs before GraphQL interpolation to prevent injection
+    # GitHub node IDs are base64-encoded, so allow [A-Za-z0-9+/=_-]
+    _id_pattern='^[A-Za-z0-9+/=_-]+$'
+    if [[ ! "$ITEM_ID" =~ $_id_pattern ]]; then
+      echo "Error: Invalid ITEM_ID format '$ITEM_ID' (expected base64-safe: [A-Za-z0-9+/=_-])." >&2
+      exit 1
+    fi
+    if [[ ! "$PROJECT_ID" =~ $_id_pattern ]]; then
+      echo "Error: Invalid PROJECT_ID format from manifest." >&2
+      exit 1
+    fi
+    if [[ ! "$STATUS_FIELD_ID" =~ $_id_pattern ]]; then
+      echo "Error: Invalid STATUS_FIELD_ID format from manifest." >&2
+      exit 1
+    fi
+    if [[ ! "$option_id" =~ $_id_pattern ]]; then
+      echo "Error: Invalid option_id format for status '$STATUS'." >&2
+      exit 1
+    fi
     mutation="mutation { updateProjectV2ItemFieldValue(input: {projectId: \"$PROJECT_ID\", itemId: \"$ITEM_ID\", fieldId: \"$STATUS_FIELD_ID\", value: {singleSelectOptionId: \"$option_id\"}}) { projectV2Item { id } } }"
     _gql_err=$(mktemp "${TMPDIR:-/tmp}/cm-gql-err.XXXXXX"); _cleanup_files+=("$_gql_err")
     if output=$(gh api graphql -f query="$mutation" 2>"$_gql_err"); then
@@ -126,7 +175,7 @@ if [ -n "$STATUS" ]; then
       echo "  ✅ Status updated to $STATUS"
     else
       echo "  ❌ Failed to update status" >&2
-      echo "  $(cat "$_gql_err")" >&2
+      echo "  $(<"$_gql_err")" >&2
       exit 1
     fi
   else

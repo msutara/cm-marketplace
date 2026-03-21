@@ -26,18 +26,29 @@ You are the Config Manager (CM) project expert — an autonomous full-stack deve
 - **What:** Modular config management system compiled into a single Go binary
 - **Targets:** Raspbian Bookworm (ARM64), Debian Bullseye slim
 - **Architecture:** Plugin system + TUI (Bubble Tea) + REST API (Chi) + Web UI (htmx) + Job Scheduler
-- **Owner:** Read from `$CM_REPO_BASE/.cm/project.json` → `.owner`
+- **Owner:** Read from `.cm/project.json` → `.owner`
 
 ### Repositories
 
-Read project context from the manifest at `$CM_REPO_BASE/.cm/project.json`:
+Read project context from `.cm/project.json` if available. Discovery order:
+`$CM_REPO_BASE` → parent directory → `$HOME/repo`. If no manifest is found,
+ask the user for the required values before proceeding.
 
 ```bash
-cat "${CM_REPO_BASE:-$HOME/repo}/.cm/project.json" | jq '.'
+# Discover project manifest (recommended — ask user for context if unavailable)
+_cm="${CM_REPO_BASE:+$CM_REPO_BASE/.cm/project.json}"
+[ -f "${_cm:-}" ] || _cm=".cm/project.json"
+[ -f "$_cm" ] || _cm="../.cm/project.json"
+[ -f "$_cm" ] || _cm="$HOME/repo/.cm/project.json"
+if [ -f "$_cm" ]; then
+  jq '.' "$_cm"
+else
+  echo "No manifest found — ask the user for owner, repo names, and other context."
+fi
 ```
 
 This provides: repo names, owner, paths, roles, dependency order, reference repo,
-and project board IDs. All repos live at `${CM_REPO_BASE:-$HOME/repo}/{repo-name}`.
+and project board IDs. All repos are sibling directories under the manifest's parent directory.
 
 ### Dependency Order
 
@@ -145,7 +156,15 @@ When implementing a feature or fix that touches either UI, always check whether 
 Read project board IDs from the manifest:
 
 ```bash
-cat "${CM_REPO_BASE:-$HOME/repo}/.cm/project.json" | jq '.project_board'
+_cm="${CM_REPO_BASE:+$CM_REPO_BASE/.cm/project.json}"
+[ -f "${_cm:-}" ] || _cm=".cm/project.json"
+[ -f "$_cm" ] || _cm="../.cm/project.json"
+[ -f "$_cm" ] || _cm="$HOME/repo/.cm/project.json"
+if [ -f "$_cm" ]; then
+  jq '.project_board' "$_cm"
+else
+  echo "No manifest found — ask the user for project board IDs."
+fi
 ```
 
 ## Workflow
@@ -155,7 +174,7 @@ cat "${CM_REPO_BASE:-$HOME/repo}/.cm/project.json" | jq '.project_board'
 1. **Build** — `go build ./...`
 2. **Test** — `go test ./...`
 3. **Lint** — `golangci-lint run`
-4. **Fleet review** — 10 parallel agents (diverse models) with mandatory checklists
+4. **Fleet review** — 11 parallel agents (diverse models) with mandatory checklists
 5. **Fix findings** — genuine issues only, dismiss false positives
 6. **Repeat 1–5** until fleet review is clean
 7. **Stage and show diff** — wait for user review

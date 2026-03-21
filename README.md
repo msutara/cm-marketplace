@@ -35,7 +35,7 @@ claude plugin install cm-dev-tools@cm-marketplace
 | Skill | Trigger | What It Does |
 | --- | --- | --- |
 | **scaffold-plugin** | "create plugin", "new plugin" | Scaffolds a new CM plugin repo with all boilerplate |
-| **cm-fleet-review** | "fleet review", "run fleet" | 10-agent multi-model code review with mandatory checklists |
+| **cm-fleet-review** | "fleet review", "run fleet" | 11-agent multi-model code review with mandatory checklists |
 | **cm-pr-lifecycle** | "create pr", "pr workflow" | Full PR cycle: build → fleet → fix → commit → push → PR → merge |
 | **cm-release** | "release", "tag repos" | Cross-repo release with validation, tagging, and release notes |
 | **cm-parity-check** | "parity check", "check parity" | TUI ↔ Web feature and security parity verification |
@@ -205,7 +205,7 @@ copilot plugin install cm-dev-tools@cm-marketplace
 
 - **GitHub Copilot CLI** or **Claude Code** — either platform works
 - **Node.js 20+** — for markdownlint-cli2 linting
-- **bash** — for helper scripts (native on Linux/macOS, Git Bash on Windows)
+- **bash 4+** — for helper scripts (native on Linux, `brew install bash` on macOS, Git Bash on Windows)
 - **gh CLI** — for PR and project board scripts
 - **jq** — for reading project manifest and JSON processing
 

@@ -17,13 +17,24 @@ Config Manager repositories.
 
 ## Project Context
 
-Read project context from the manifest at `$CM_REPO_BASE/.cm/project.json`:
+Read project context from `.cm/project.json` if available. Discovery order:
+`$CM_REPO_BASE` → parent directory → `$HOME/repo`. If no manifest is found,
+ask the user for the required values before proceeding.
 
 ```bash
-cat "${CM_REPO_BASE:-$HOME/repo}/.cm/project.json" | jq '.'
+# Discover project manifest (recommended — ask user for context if unavailable)
+_cm="${CM_REPO_BASE:+$CM_REPO_BASE/.cm/project.json}"
+[ -f "${_cm:-}" ] || _cm=".cm/project.json"
+[ -f "$_cm" ] || _cm="../.cm/project.json"
+[ -f "$_cm" ] || _cm="$HOME/repo/.cm/project.json"
+if [ -f "$_cm" ]; then
+  jq '.' "$_cm"
+else
+  echo "No manifest found — ask the user for owner, repo names, and other context."
+fi
 ```
 
-This provides: repo names, owner, paths (`$CM_REPO_BASE/{name}`), dependency order,
+This provides: repo names, owner, paths (sibling repos under the manifest's parent directory), dependency order,
 reference repo, and project board IDs. All values below are derived from the manifest.
 
 ## Step 1 — Fetch PR Comments
@@ -107,7 +118,7 @@ Present the results as a table:
 ## Step 4 — Present Triage Summary
 
 ```markdown
-## PR #{NUMBER} Comment Triage — {repo}
+## PR #{PR_NUMBER} Comment Triage — {repo}
 
 ### 🔴 Must Fix (open, human, requires code change)
 
@@ -135,15 +146,36 @@ Present the results as a table:
 
 ## Step 5 — Implement Fixes (with User Approval)
 
+### Fix Propagation (MANDATORY — apply BEFORE building/testing)
+
+When fixing ANY review comment, **immediately search the entire repo** for the
+same pattern. Reviewers (human and bot) check whether a fix was applied
+everywhere — fixing one file and missing others guarantees another review round.
+
+1. Identify the **pattern class** of the fix (regex, error format, code snippet,
+   UUOC, path traversal, wording, etc.).
+2. **Grep the entire repo** for that pattern class — scripts, skills, agents,
+   docs, CI. Not just the file flagged.
+3. Apply the fix to **every instance** found.
+4. Run a quick consistency check: are all instances now identical/consistent?
+
+Examples of pattern classes:
+
+- `cat file | jq` → search ALL `$(cat` and `cat.*|` repo-wide
+- Regex `[A-Za-z0-9._-]+` → search ALL regex validations, tighten consistently
+- Error to stdout → search ALL error-path `echo`, ensure `>&2`
+- Stale comment wording → search ALL files for the old wording
+- Missing cwd check in manifest → check ALL manifest discovery snippets
+
 ### Full-flow fixes
 
 For every comment marked *full flow required*:
 
-1. Implement the fix.
+1. Implement the fix **and propagate to all instances**.
 2. Build — ensure no compilation errors.
 3. Test — run all tests, ensure passing.
 4. Lint — run project linters.
-5. Fleet review — launch 4–5 parallel code-review agents with varied models.
+5. Fleet review — invoke the `cm-fleet-review` skill (11 parallel agents with varied models).
 6. Address any fleet findings, then re-run steps 2–5.
 7. Push to the **PR branch** (never to main).
 
@@ -152,7 +184,7 @@ For every comment marked *full flow required*:
 For comments marked *safe to quick-fix*:
 
 1. **Ask the user first** — explain why skipping the full flow is safe.
-2. Implement the fix.
+2. Implement the fix **and propagate to all instances**.
 3. Build and test.
 4. Push to the PR branch.
 
@@ -173,10 +205,17 @@ gh api graphql -f query="mutation {
 If a comment cannot be addressed in this PR cycle:
 
 1. Create a GitHub issue tracking the deferred work.
-2. Add the issue to the project board as **Backlog**.
+2. Add the issue to the project board and set its status to the backlog/initial
+   status defined in `.cm/project.json`.
 
    ```bash
-   itemId=$(gh project item-add {PROJECT_NUMBER} --owner {OWNER} --url {ISSUE_URL} --format json | jq -r '.id')
+   gh project item-add {PROJECT_NUMBER} --owner {OWNER} --url {ISSUE_URL}
+   ```
+
+   Then set the status (from the marketplace repo root):
+
+   ```bash
+   ./plugins/cm-dev-tools/scripts/project-board.sh --url {ISSUE_URL} --status {BACKLOG_STATUS}
    ```
 
 3. Resolve the thread with a reference to the new issue.

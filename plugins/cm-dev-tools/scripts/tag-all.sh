@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# tag-all.sh — Tag all 5 CM repos in dependency order
+# tag-all.sh — Tag all CM repos in dependency order from the project manifest
 # Usage: ./tag-all.sh <version> [--dry-run]
 set -euo pipefail
 
@@ -50,9 +50,24 @@ for repo in "${DEP_ORDER[@]}"; do
     exit 1
   fi
 
-  # Skip if already tagged at this version (check remote explicitly)
+  # Skip if already tagged at this version (check local + remote)
+  if git -C "$path" tag -l "$VERSION" | grep -q .; then
+    # Local tag exists — ensure remote has it too, then skip
+    _remote_tags=$(git -C "$path" ls-remote --tags origin "refs/tags/$VERSION" 2>/dev/null || true)
+    if [ -z "$_remote_tags" ]; then
+      if [ "$DRY_RUN" = true ]; then
+        echo "  [DRY RUN] Would push existing local tag $VERSION for $repo"
+      else
+        echo "  📤 $repo has local tag $VERSION but not on remote — pushing..."
+        git -C "$path" push origin "$VERSION"
+      fi
+    fi
+    echo "  ⏭️  $repo already tagged at $VERSION — skipping"
+    continue
+  fi
   git -C "$path" fetch --tags --quiet 2>/dev/null || true
-  if git -C "$path" ls-remote --tags origin "refs/tags/$VERSION" 2>/dev/null | grep -q .; then
+  _remote_check=$(git -C "$path" ls-remote --tags origin "refs/tags/$VERSION" 2>/dev/null || true)
+  if [ -n "$_remote_check" ]; then
     echo "  ⏭️  $repo already tagged at $VERSION (remote) — skipping"
     continue
   fi

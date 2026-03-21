@@ -30,10 +30,21 @@ The Config Manager project enforces a **permanent parity rule**:
 
 ## Repos
 
-Read TUI and Web repo paths from the manifest at `$CM_REPO_BASE/.cm/project.json`:
+Read TUI and Web repo paths from `.cm/project.json` if available. Discovery order:
+`$CM_REPO_BASE` → parent directory → `$HOME/repo`. If no manifest is found,
+ask the user for the required values before proceeding.
 
 ```bash
-cat "${CM_REPO_BASE:-$HOME/repo}/.cm/project.json" | jq '.repos[] | select(.role | contains("TUI") or contains("web UI"))'
+# Discover project manifest (recommended — ask user for context if unavailable)
+_cm="${CM_REPO_BASE:+$CM_REPO_BASE/.cm/project.json}"
+[ -f "${_cm:-}" ] || _cm=".cm/project.json"
+[ -f "$_cm" ] || _cm="../.cm/project.json"
+[ -f "$_cm" ] || _cm="$HOME/repo/.cm/project.json"
+if [ -f "$_cm" ]; then
+  jq '.repos[] | select((.role // "") | (contains("TUI") or contains("web UI")))' "$_cm"
+else
+  echo "No manifest found — ask the user for owner, repo names, and other context."
+fi
 ```
 
 | UI | Stack |
@@ -168,10 +179,11 @@ Compile all findings into a single report with this structure:
 Ask the user whether to create GitHub issues for each gap. If approved, run:
 
 ```bash
-gh issue create --repo {OWNER}/{WEB_REPO} --title "Parity: Add {feature}" --body "{details}"
+# Use the web repo name discovered from the manifest query in Step 1
+gh issue create --repo {OWNER}/{web_repo_name} --title "Parity: Add {feature}" --body "{details}"
 ```
 
-(Read owner and repo names from the manifest)
+(Replace `{web_repo_name}` with the actual repo name from the manifest `repos[]` query above)
 
 Create one issue per gap so they can be tracked and closed independently.
 

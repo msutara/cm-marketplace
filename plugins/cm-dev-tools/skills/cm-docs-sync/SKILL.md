@@ -1,7 +1,7 @@
 ---
 name: cm-docs-sync
 description: >
-  Documentation consistency auditing across all 5 CM repos. Scans configuration
+  Documentation consistency auditing across all CM repos. Scans configuration
   files for drift, validates copilot-instructions.md accuracy, cross-references
   specs with code, checks README freshness, and runs markdownlint. Generates a
   unified report and optionally auto-fixes mechanical divergences.
@@ -11,14 +11,25 @@ description: >
 
 # CM Documentation Consistency Audit
 
-Audit and enforce documentation parity across all 5 CM repositories.
+Audit and enforce documentation parity across all CM repositories.
 
 ## Repositories
 
-Read repo list from the manifest at `$CM_REPO_BASE/.cm/project.json`:
+Read project context from `.cm/project.json` if available. Discovery order:
+`$CM_REPO_BASE` → parent directory → `$HOME/repo`. If no manifest is found,
+ask the user for the required values before proceeding.
 
 ```bash
-cat "${CM_REPO_BASE:-$HOME/repo}/.cm/project.json" | jq '.repos[] | "\(.name) → \(.role)"'
+# Discover project manifest (recommended — ask user for context if unavailable)
+_cm="${CM_REPO_BASE:+$CM_REPO_BASE/.cm/project.json}"
+[ -f "${_cm:-}" ] || _cm=".cm/project.json"
+[ -f "$_cm" ] || _cm="../.cm/project.json"
+[ -f "$_cm" ] || _cm="$HOME/repo/.cm/project.json"
+if [ -f "$_cm" ]; then
+  jq '.repos[] | "\(.name) → \(.role)"' "$_cm"
+else
+  echo "No manifest found — ask the user for owner, repo names, and other context."
+fi
 ```
 
 The **reference repo** (use `reference_repo` from manifest) is the source of truth
@@ -26,13 +37,13 @@ for identical configuration files.
 
 ## Step 1 — Scan Configuration Files
 
-Compare files that MUST be identical (or structurally identical) across all 5 repos.
+Compare files that MUST be identical (or structurally identical) across all repos.
 
 | File | Must Match | Notes |
 | --- | --- | --- |
 | `.markdownlint.json` | Byte-identical | Full 28-rule config (see `config-manager-core/.markdownlint.json` as reference) |
 | `.golangci.yml` | Structurally identical | v2 format; repo-specific linter exclusions are acceptable |
-| `dependabot.yml` | Structurally identical | gomod + github-actions, weekly schedule |
+| `.github/dependabot.yml` | Structurally identical | gomod + github-actions, weekly schedule |
 | `.github/workflows/ci.yml` | Pattern-matching | Same actions versions, same steps; repo-specific test commands expected |
 | `.github/PULL_REQUEST_TEMPLATE.md` | Identical | Standard PR template |
 
@@ -56,7 +67,7 @@ For every repo, verify:
 - References the correct repo name and Go import path.
 - Architecture section matches the actual directory structure (`ls -R` or `tree` top-level dirs).
 - Plugin interface references (function signatures, interface names) are up-to-date with code.
-- Conventions section is consistent with the equivalent section in the other 4 repos.
+- Conventions section is consistent with the equivalent section in other repos.
 - Every file path mentioned in the document actually exists on disk.
 
 Flag stale references (e.g., `internal/plugin/` when the interface moved to `plugin/`).
@@ -90,7 +101,8 @@ For each repo's `README.md`:
 For each repo, execute:
 
 ```bash
-cd {repo_path} && markdownlint-cli2 "**/*.md" "#node_modules"
+cd "{repo_path}" || { echo "Failed to cd into {repo_path}"; exit 1; }
+markdownlint-cli2 "**/*.md" "#node_modules"
 ```
 
 Collect violations per repo and include them in the report.
@@ -125,7 +137,7 @@ Generated: {timestamp}
 
 (Use actual repo names from manifest)
 
-### dependabot.yml
+### .github/dependabot.yml
 
 - ✅ All repos: structurally identical
 
@@ -133,7 +145,7 @@ Generated: {timestamp}
 
 ### .github/workflows/ci.yml
 
-- ✅ All repos: same actions versions (actions/checkout@v4, actions/setup-go@v5)
+- ✅ All repos: same actions versions (actions/checkout@v6, actions/setup-go@v5)
 - ℹ️ Web repo may use additional `npm ci` step (expected)
 
 (Use actual repo names from manifest)

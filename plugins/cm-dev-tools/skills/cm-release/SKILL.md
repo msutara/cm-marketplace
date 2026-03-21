@@ -1,7 +1,7 @@
 ---
 name: cm-release
 description: >
-  Cross-repo release workflow for all 5 Config Manager repositories. Validates
+  Cross-repo release workflow for all Config Manager repositories. Validates
   every repo (clean tree, build, test, lint), tags in dependency order, generates
   release notes from merged PRs, creates GitHub releases, verifies CI artifacts,
   and updates the project board. Supports semver strings and bump types.
@@ -11,19 +11,30 @@ description: >
 
 # CM Cross-Repo Release Workflow
 
-Orchestrate a synchronized release across all 5 Config Manager repositories.
+Orchestrate a synchronized release across all Config Manager repositories.
 Tags are applied in strict dependency order so that downstream `go.mod` references
 always resolve to published versions.
 
 ## Project Context
 
-Read project context from the manifest at `$CM_REPO_BASE/.cm/project.json`:
+Read project context from `.cm/project.json` if available. Discovery order:
+`$CM_REPO_BASE` → parent directory → `$HOME/repo`. If no manifest is found,
+ask the user for the required values before proceeding.
 
 ```bash
-cat "${CM_REPO_BASE:-$HOME/repo}/.cm/project.json" | jq '.'
+# Discover project manifest (recommended — ask user for context if unavailable)
+_cm="${CM_REPO_BASE:+$CM_REPO_BASE/.cm/project.json}"
+[ -f "${_cm:-}" ] || _cm=".cm/project.json"
+[ -f "$_cm" ] || _cm="../.cm/project.json"
+[ -f "$_cm" ] || _cm="$HOME/repo/.cm/project.json"
+if [ -f "$_cm" ]; then
+  jq '.' "$_cm"
+else
+  echo "No manifest found — ask the user for owner, repo names, and other context."
+fi
 ```
 
-This provides: repo names, owner, paths (`$CM_REPO_BASE/{name}`), dependency order
+This provides: repo names, owner, paths (sibling repos under the manifest's parent directory), dependency order
 (use `dep_order` array), reference repo, and project board IDs. All values below are
 derived from the manifest.
 
@@ -47,8 +58,17 @@ If a bump type is given instead of an explicit version, calculate the next versi
 from the latest tag on the reference repo (read `reference_repo` from the manifest):
 
 ```bash
-referenceRepo=$(cat "${CM_REPO_BASE:-$HOME/repo}/.cm/project.json" | jq -r '.reference_repo')
-latestTag=$(git -C "${CM_REPO_BASE:-$HOME/repo}/${referenceRepo}" describe --tags --abbrev=0 2>/dev/null)
+_cm="${CM_REPO_BASE:+$CM_REPO_BASE/.cm/project.json}"
+[ -f "${_cm:-}" ] || _cm=".cm/project.json"
+[ -f "$_cm" ] || _cm="../.cm/project.json"
+[ -f "$_cm" ] || _cm="$HOME/repo/.cm/project.json"
+if [ -f "$_cm" ]; then
+  referenceRepo=$(jq -r '.reference_repo' "$_cm")
+  latestTag=$(git -C "$(dirname "$(dirname "$_cm")")/${referenceRepo}" describe --tags --abbrev=0 2>/dev/null)
+else
+  echo "No manifest found — ask the user for reference repo and latest tag." >&2
+  exit 1
+fi
 ```
 
 Parse with semver rules, increment the requested component, and reset lower
@@ -74,12 +94,22 @@ a matrix and report the first failure.
 | 6 | MD lint    | `markdownlint-cli2`      | Exit code 0   |
 
 ```bash
-base="${CM_REPO_BASE:-$HOME/repo}"
-# Read dep_order from manifest
-repos=($(cat "$base/.cm/project.json" | jq -r '.dep_order[]'))
+_cm="${CM_REPO_BASE:+$CM_REPO_BASE/.cm/project.json}"
+[ -f "${_cm:-}" ] || _cm=".cm/project.json"
+[ -f "$_cm" ] || _cm="../.cm/project.json"
+[ -f "$_cm" ] || _cm="$HOME/repo/.cm/project.json"
+if [ -f "$_cm" ]; then
+  base="$(cd "$(dirname "$_cm")/.." && pwd)"
+  # Read dep_order from manifest
+  repos=($(jq -r '.dep_order[]' "$_cm"))
+else
+  echo "No manifest found — ask the user for repo list and base directory." >&2
+  echo "Cannot proceed without manifest or explicit repo list." >&2
+  exit 1
+fi
 
 for n in "${repos[@]}"; do
-    pushd "$base/$n" > /dev/null
+    pushd "$base/$n" > /dev/null || { echo "❌ ${n}: directory not found at $base/$n" >&2; exit 1; }
 
     dirty=$(git status --porcelain)
     if [[ -n "$dirty" ]]; then
@@ -159,7 +189,7 @@ Example (actual repos from manifest):
 version="v0.5.0"  # from user input
 
 for n in "${repos[@]}"; do
-    pushd "$base/$n" > /dev/null
+    pushd "$base/$n" > /dev/null || { echo "❌ ${n}: directory not found" >&2; exit 1; }
     git tag "$version"
     git push origin "$version"
     echo "🏷️  Tagged ${n} → $version"
@@ -275,6 +305,8 @@ for n in "${repos[@]}"; do
     # Wait for completion if still in progress
     if [[ "$status" == "in_progress" ]]; then
         gh run watch "$dbId" --repo "$owner/$n"
+        # Re-fetch conclusion after watch completes
+        conclusion=$(gh run view "$dbId" --repo "$owner/$n" --json conclusion --jq '.conclusion')
     fi
 
     # Verify conclusion
@@ -283,8 +315,10 @@ for n in "${repos[@]}"; do
     fi
 
     # For reference repo, verify .deb artifacts are attached
-    referenceRepo=$(cat "$base/.cm/project.json" | jq -r '.reference_repo')
-    if [[ "$n" == "$referenceRepo" ]]; then
+    if [ -f "$base/.cm/project.json" ]; then
+        referenceRepo=$(jq -r '.reference_repo' "$base/.cm/project.json")
+    fi
+    if [[ -n "${referenceRepo:-}" && "$n" == "$referenceRepo" ]]; then
         assets=$(gh release view "$version" \
             --repo "$owner/$n" \
             --json assets --jq '.assets[].name')
@@ -300,22 +334,12 @@ investigation. Do **not** mark the release as complete.
 
 ### Update GitHub project board
 
-Set all release-related items to **Done**:
+Set all release-related items to the completion status defined in
+`.cm/project.json` (from the marketplace repo root):
 
 ```bash
-# Replace $ITEM_ID with the actual project item ID for each release item
-ITEM_ID="PVTI_..."  # from gh project item-list or item-add
-gh api graphql -f query="
-  mutation {
-    updateProjectV2ItemFieldValue(
-      input: {
-        projectId: \"{PROJECT_ID}\"
-        itemId: \"$ITEM_ID\"
-        fieldId: \"{STATUS_FIELD_ID}\"
-        value: { singleSelectOptionId: \"{DONE_STATUS_ID}\" }
-      }
-    ) { projectV2Item { id } }
-  }"
+# For each release-related PR or issue URL:
+./plugins/cm-dev-tools/scripts/project-board.sh --url {ITEM_URL} --status {DONE_STATUS}
 ```
 
 ### Pull latest tags locally
@@ -323,7 +347,7 @@ gh api graphql -f query="
 ```bash
 # Requires $base and $repos from Phase 1/2 above
 for n in "${repos[@]}"; do
-    pushd "$base/$n" > /dev/null
+    pushd "$base/$n" > /dev/null || { echo "❌ ${n}: directory not found at $base/$n" >&2; exit 1; }
     git fetch --tags
     popd > /dev/null
 done
@@ -350,9 +374,16 @@ If repos are added or removed between releases, update the project manifest
 **before** starting the release flow:
 
 ```bash
-manifest="${CM_REPO_BASE:-$HOME/repo}/.cm/project.json"
-# Verify manifest matches the repos you intend to release
-jq '.repos[].name, .dep_order[]' "$manifest"
+_cm="${CM_REPO_BASE:+$CM_REPO_BASE/.cm/project.json}"
+[ -f "${_cm:-}" ] || _cm=".cm/project.json"
+[ -f "$_cm" ] || _cm="../.cm/project.json"
+[ -f "$_cm" ] || _cm="$HOME/repo/.cm/project.json"
+if [ -f "$_cm" ]; then
+  # Verify manifest matches the repos you intend to release
+  jq '.repos[].name, .dep_order[]' "$_cm"
+else
+  echo "No manifest found — verify repo list manually before proceeding."
+fi
 ```
 
 If the manifest is outdated, edit it directly or re-run `init-project.sh`.
