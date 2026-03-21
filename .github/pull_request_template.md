@@ -8,7 +8,7 @@
 
 ## Checklist
 
-- [ ] `npm run lint:all` passes (markdown linting)
+- [ ] `npm run lint:all` passes (markdownlint + Biome JS)
 - [ ] JSON files are valid (marketplace.json, plugin.json)
 - [ ] Plugin entry added/updated in `.claude-plugin/marketplace.json` (if adding a plugin)
 - [ ] Root README updated (if adding a plugin)

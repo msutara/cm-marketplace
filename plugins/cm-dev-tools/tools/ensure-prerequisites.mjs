@@ -39,6 +39,15 @@ const windowsFallbacks = {
     "C:\\ProgramData\\chocolatey\\bin\\jq.exe",
     `${process.env.USERPROFILE}\\scoop\\shims\\jq.exe`,
   ],
+  gh: [
+    "C:\\Program Files\\GitHub CLI\\gh.exe",
+    "C:\\Program Files (x86)\\GitHub CLI\\gh.exe",
+    `${process.env.USERPROFILE}\\scoop\\shims\\gh.exe`,
+  ],
+  shellcheck: [
+    `${process.env.USERPROFILE}\\scoop\\shims\\shellcheck.exe`,
+    "C:\\ProgramData\\chocolatey\\bin\\shellcheck.exe",
+  ],
 };
 
 // ── Colour helpers (respects NO_COLOR / CI) ──────────────────────────────────
@@ -284,9 +293,10 @@ for (const prereq of prerequisites) {
   let result = tryExecWithFallback(prereq.name, prereq.cmd, prereq.args);
 
   // If missing or failed, attempt auto-install then re-check
+  let didInstall = false;
   if (!result.ok && autoInstall) {
-    const installed = tryInstall(prereq);
-    if (installed) {
+    didInstall = tryInstall(prereq);
+    if (didInstall) {
       result = tryExecWithFallback(prereq.name, prereq.cmd, prereq.args);
     }
   }
@@ -299,7 +309,13 @@ for (const prereq of prerequisites) {
           ? "not found"
           : "execution failed";
     log(`  ${colour.red("✗")} ${colour.bold(prereq.name)} — ${reason}`);
-    log(`    ${colour.dim(`Manual install: ${prereq.installHint}`)}`);
+    if (didInstall) {
+      log(
+        `    ${colour.yellow("⚠")} Installed but not yet on PATH — restart your terminal then re-run`,
+      );
+    } else {
+      log(`    ${colour.dim(`Manual install: ${prereq.installHint}`)}`);
+    }
     failures++;
     continue;
   }
