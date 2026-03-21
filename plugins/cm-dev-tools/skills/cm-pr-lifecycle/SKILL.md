@@ -20,25 +20,15 @@ before every irreversible action.
 
 ## Project Context
 
-### Repos
+Read project context from the manifest at `$CM_REPO_BASE/.cm/project.json`:
 
-| # | Repo | Path | Owner |
-| --- | --- | --- | --- |
-| 1 | config-manager-core | `$CM_REPO_BASE/config-manager-core` | msutara |
-| 2 | cm-plugin-network | `$CM_REPO_BASE/cm-plugin-network` | msutara |
-| 3 | cm-plugin-update | `$CM_REPO_BASE/cm-plugin-update` | msutara |
-| 4 | config-manager-tui | `$CM_REPO_BASE/config-manager-tui` | msutara |
-| 5 | config-manager-web | `$CM_REPO_BASE/config-manager-web` | msutara |
+```bash
+cat "${CM_REPO_BASE:-$HOME/repo}/.cm/project.json" | jq '.'
+```
 
-### GitHub Project
-
-| Key | Value |
-| --- | --- |
-| Project ID | `PVT_kwHOAgHix84BPSxN` |
-| Status field ID | `PVTSSF_lAHOAgHix84BPSxNzg9vkrk` |
-| In-progress option | `47fc9ee4` |
-| Review option | `e70217cf` |
-| Done option | `98236657` |
+This provides: repo names, owner, paths (`$CM_REPO_BASE/{name}`), dependency order,
+reference repo, and project board IDs (project ID, field IDs, status option IDs).
+All values below are derived from the manifest.
 
 ---
 
@@ -202,7 +192,7 @@ Closes #{issue_number}
 Add the PR to the GitHub project and set status to **Review**:
 
 ```bash
-gh project item-add 1 --owner msutara --url {PR_URL}
+gh project item-add {PROJECT_NUMBER} --owner {OWNER} --url {PR_URL}
 ```
 
 Then update the item status to Review using the GraphQL API:
@@ -212,10 +202,10 @@ gh api graphql -f query='
   mutation {
     updateProjectV2ItemFieldValue(
       input: {
-        projectId: "PVT_kwHOAgHix84BPSxN"
+        projectId: "{PROJECT_ID}"
         itemId: "{ITEM_ID}"
-        fieldId: "PVTSSF_lAHOAgHix84BPSxNzg9vkrk"
-        value: { singleSelectOptionId: "e70217cf" }
+        fieldId: "{STATUS_FIELD_ID}"
+        value: { singleSelectOptionId: "{REVIEW_STATUS_ID}" }
       }
     ) { projectV2Item { id } }
   }'

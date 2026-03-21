@@ -17,10 +17,14 @@ and the plugin registered in the core binary.
 
 ## Project Context
 
-| Key | Value |
-| --- | --- |
-| Reference repo | `config-manager-core` (`$CM_REPO_BASE/config-manager-core`, owner: msutara) |
-| GitHub Project ID | `PVT_kwHOAgHix84BPSxN` |
+Read project context from the manifest at `$CM_REPO_BASE/.cm/project.json`:
+
+```bash
+cat "${CM_REPO_BASE:-$HOME/repo}/.cm/project.json" | jq '.'
+```
+
+Use `reference_repo` for the reference repository and `owner` for the GitHub owner.
+Use `project_board.id` for the project board ID.
 
 ## Step 0 — Gather Input
 
@@ -40,14 +44,14 @@ Derive from these:
   if the name contains hyphens (Go packages cannot have hyphens). For single-word
   names like `firewall`, the package name is `firewall`.
 - **Repo name** — `cm-plugin-{name}`
-- **Module path** — `github.com/msutara/cm-plugin-{name}`
+- **Module path** — `github.com/{OWNER}/cm-plugin-{name}`
 - **Constructor** — `New{Name}Plugin()` (PascalCase)
 - **Struct** — `{Name}Plugin` (PascalCase)
 
 ## Step 1 — Create the GitHub Repository
 
 ```bash
-gh repo create msutara/cm-plugin-{name} --public --clone --description "{description}"
+gh repo create {OWNER}/cm-plugin-{name} --public --clone --description "{description}"
 cd cm-plugin-{name}
 git checkout -b phase1/skeleton-and-specs
 ```
@@ -55,7 +59,7 @@ git checkout -b phase1/skeleton-and-specs
 Verify the repo was created:
 
 ```bash
-gh repo view msutara/cm-plugin-{name} --json name,url
+gh repo view {OWNER}/cm-plugin-{name} --json name,url
 ```
 
 ## Step 2 — Generate the Directory Tree
@@ -104,13 +108,13 @@ Create each file using the templates below. Replace every `{name}`, `{Name}`,
 ### 3.1 — go.mod
 
 ```go
-module github.com/msutara/cm-plugin-{name}
+module github.com/{OWNER}/cm-plugin-{name}
 
 go 1.24.0
 
 require github.com/go-chi/chi/v5 v5.2.5
 
-require github.com/msutara/config-manager-core v0.4.3
+require github.com/{OWNER}/config-manager-core v0.4.3
 ```
 
 After writing the file, run:
@@ -129,7 +133,7 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/msutara/config-manager-core/plugin"
+	"github.com/{OWNER}/config-manager-core/plugin"
 )
 
 // Compile-time interface checks.
@@ -349,7 +353,7 @@ package {pkg}
 import (
 	"testing"
 
-	"github.com/msutara/config-manager-core/plugin"
+	"github.com/{OWNER}/config-manager-core/plugin"
 )
 
 func TestPluginInterface(t *testing.T) {
@@ -712,7 +716,7 @@ updates:
 ```txt
 MIT License
 
-Copyright (c) {YEAR} msutara
+Copyright (c) {YEAR} {OWNER}
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -741,7 +745,7 @@ Replace `{YEAR}` with the current year at generation time.
 # cm-plugin-{name}
 
 {description} plugin for
-[Config Manager](https://github.com/msutara/config-manager-core). Designed for
+[Config Manager](https://github.com/{OWNER}/config-manager-core). Designed for
 headless Debian-based nodes (Raspbian Bookworm ARM64, Debian Bullseye slim).
 
 ## Features
@@ -815,11 +819,11 @@ Thank you for your interest in contributing to the Config Manager project!
 
 This project is split across multiple repositories:
 
-- [config-manager-core](https://github.com/msutara/config-manager-core) —
+- [config-manager-core](https://github.com/{OWNER}/config-manager-core) —
   core framework, plugin system, API server
-- [cm-plugin-{name}](https://github.com/msutara/cm-plugin-{name}) —
+- [cm-plugin-{name}](https://github.com/{OWNER}/cm-plugin-{name}) —
   {description}
-- [config-manager-tui](https://github.com/msutara/config-manager-tui) —
+- [config-manager-tui](https://github.com/{OWNER}/config-manager-tui) —
   terminal UI (Bubble Tea)
 
 ## Code of Conduct
@@ -854,7 +858,7 @@ The plugin is compiled into the core binary via a normal import in
 `cmd/cm/main.go`:
 
 ```go
-import {pkg} "github.com/msutara/cm-plugin-{name}"
+import {pkg} "github.com/{OWNER}/cm-plugin-{name}"
 
 plugin.Register({pkg}.New{Name}Plugin())
 ```
@@ -989,7 +993,7 @@ Add any other context or screenshots about the feature request here.
 blank_issues_enabled: true
 contact_links:
   - name: Documentation
-    url: https://github.com/msutara/cm-plugin-{name}#readme
+    url: https://github.com/{OWNER}/cm-plugin-{name}#readme
     about: Check the README for setup and usage instructions
 ```
 
@@ -1135,7 +1139,7 @@ The plugin is integrated into Config Manager by importing it and registering it
 with the core's plugin registry:
 
 ```go
-import {pkg} "github.com/msutara/cm-plugin-{name}"
+import {pkg} "github.com/{OWNER}/cm-plugin-{name}"
 
 plugin.Register({pkg}.New{Name}Plugin())
 ```
@@ -1197,7 +1201,7 @@ Edit `$CM_REPO_BASE/config-manager-core/cmd/cm/main.go`:
 1. Add the import (alphabetical order among plugin imports):
 
    ```go
-   {pkg} "github.com/msutara/cm-plugin-{name}"
+   {pkg} "github.com/{OWNER}/cm-plugin-{name}"
    ```
 
 2. Add the registration call (in the same block as other `plugin.Register` calls):
@@ -1210,7 +1214,7 @@ Edit `$CM_REPO_BASE/config-manager-core/cmd/cm/main.go`:
 
    ```bash
    cd "${CM_REPO_BASE:-$HOME/repo}/config-manager-core"
-   go get github.com/msutara/cm-plugin-{name}@latest
+   go get github.com/{OWNER}/cm-plugin-{name}@latest
    go mod tidy
    go build ./...
    go test ./...
@@ -1222,7 +1226,7 @@ Edit `$CM_REPO_BASE/config-manager-core/cmd/cm/main.go`:
 ## Step 6 — Add to GitHub Project Board
 
 ```bash
-gh project item-add 1 --owner msutara --url "https://github.com/msutara/cm-plugin-{name}"
+gh project item-add {PROJECT_NUMBER} --owner {OWNER} --url "https://github.com/{OWNER}/cm-plugin-{name}"
 ```
 
 ## Step 7 — Commit and Create Initial PR
@@ -1249,7 +1253,7 @@ Create the PR:
 
 ```bash
 gh pr create \
-  --repo msutara/cm-plugin-{name} \
+  --repo {OWNER}/cm-plugin-{name} \
   --base main \
   --head phase1/skeleton-and-specs \
   --title "feat: scaffold {name} plugin skeleton and specs" \
@@ -1280,7 +1284,7 @@ Initial plugin scaffold for **cm-plugin-{name}** — {description}.
 
 Before reporting completion, verify all of the following:
 
-- [ ] GitHub repo `msutara/cm-plugin-{name}` exists and is public
+- [ ] GitHub repo `{OWNER}/cm-plugin-{name}` exists and is public
 - [ ] All files from the tree in Step 2 are present
 - [ ] `go build ./...` succeeds
 - [ ] `go test ./...` passes

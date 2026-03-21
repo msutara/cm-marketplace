@@ -26,7 +26,7 @@ claude plugin install cm-dev-tools@cm-marketplace
 
 | Plugin | Description | Skills | Scripts | Agents |
 | --- | --- | --- | --- | --- |
-| [`cm-dev-tools`](plugins/cm-dev-tools/) | Full development toolkit for Config Manager | 7 | 6 | 2 |
+| [`cm-dev-tools`](plugins/cm-dev-tools/) | Full development toolkit for Config Manager | 7 | 7 | 2 |
 
 ## What You Get
 
@@ -42,18 +42,19 @@ claude plugin install cm-dev-tools@cm-marketplace
 | **cm-pr-comments** | "triage comments", "pr feedback" | PR comment triage, risk assessment, and thread resolution |
 | **cm-docs-sync** | "sync docs", "docs audit" | Cross-repo documentation and config consistency audit |
 
-### Bash Scripts (6)
+### Bash Scripts (7)
 
 Helper scripts that skills invoke directly — no intermediary server needed.
-Most scripts use `${CM_REPO_BASE:-$HOME/repo}` for the repo base path
-(`validate-repo.sh` takes an explicit path argument instead).
+Scripts read project context (repos, owner, board IDs) from
+`$CM_REPO_BASE/.cm/project.json` via a shared library.
 
 | Script | Usage |
 | --- | --- |
+| `init-project.sh` | Generate the project manifest interactively |
 | `validate-repo.sh` | Build + test + lint a single repo |
-| `validate-all.sh` | Validate all 5 repos |
+| `validate-all.sh` | Validate all repos from manifest |
 | `repo-status.sh` | Git branch, clean state, last tag for all repos |
-| `tag-all.sh` | Tag all repos in dependency order |
+| `tag-all.sh` | Tag all repos in dependency order from manifest |
 | `sync-deps.sh` | Bump go.mod dependency across downstream repos |
 | `project-board.sh` | Add items and update status on GitHub project board |
 
@@ -69,6 +70,27 @@ cp plugins/cm-dev-tools/agents/*.agent.md ~/.copilot/agents/
 | --- | --- |
 | **CMDeveloper** | Full-stack CM development with embedded project knowledge |
 | **CMReviewer** | Code review specialist with fleet config and false positive suppression |
+
+## Project Manifest
+
+Scripts and skills read project context from `$CM_REPO_BASE/.cm/project.json`.
+This file defines repos, owner, dependency order, and project board IDs.
+
+Generate it interactively:
+
+```bash
+./plugins/cm-dev-tools/scripts/init-project.sh
+```
+
+Or copy the template and edit:
+
+```bash
+mkdir -p "${CM_REPO_BASE:-$HOME/repo}/.cm"
+cp docs/project.example.json "${CM_REPO_BASE:-$HOME/repo}/.cm/project.json"
+# Edit with your values
+```
+
+See [`docs/project.example.json`](docs/project.example.json) for the full schema.
 
 ## Repos Managed
 
@@ -122,12 +144,17 @@ cm-marketplace/
 │       │   └── cm-docs-sync/
 │       │       └── SKILL.md
 │       └── scripts/
-│           ├── validate-repo.sh      # Build + test + lint one repo
-│           ├── validate-all.sh       # Validate all 5 repos
-│           ├── repo-status.sh        # Git status across repos
-│           ├── tag-all.sh            # Tag repos in dependency order
-│           ├── sync-deps.sh          # Bump go.mod dependencies
-│           └── project-board.sh      # GitHub project board automation
+│           ├── lib/
+│           │   └── load-project.sh     # Shared: reads project.json manifest
+│           ├── init-project.sh         # Generate project.json interactively
+│           ├── validate-repo.sh        # Build + test + lint one repo
+│           ├── validate-all.sh         # Validate all repos from manifest
+│           ├── repo-status.sh          # Git status across repos
+│           ├── tag-all.sh              # Tag repos in dependency order
+│           ├── sync-deps.sh            # Bump go.mod dependencies
+│           └── project-board.sh        # GitHub project board automation
+├── docs/
+│   └── project.example.json           # Template for project manifest
 ├── LICENSE                           # GPL-3.0
 ├── README.md                         # This file
 ├── RELEASES.md                       # Version history
@@ -180,7 +207,7 @@ copilot plugin install cm-dev-tools@cm-marketplace
 - **Node.js 20+** — for markdownlint-cli2 linting
 - **bash** — for helper scripts (native on Linux/macOS, Git Bash on Windows)
 - **gh CLI** — for PR and project board scripts
-- **jq** — for JSON processing in project-board script
+- **jq** — for reading project manifest and JSON processing
 
 ### For target CM repos (used by skills at runtime)
 

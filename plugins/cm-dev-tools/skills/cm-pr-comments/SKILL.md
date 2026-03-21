@@ -17,22 +17,14 @@ Config Manager repositories.
 
 ## Project Context
 
-### Repos
+Read project context from the manifest at `$CM_REPO_BASE/.cm/project.json`:
 
-| # | Repo | Path | Owner |
-| --- | --- | --- | --- |
-| 1 | config-manager-core | `$CM_REPO_BASE/config-manager-core` | msutara |
-| 2 | cm-plugin-network | `$CM_REPO_BASE/cm-plugin-network` | msutara |
-| 3 | cm-plugin-update | `$CM_REPO_BASE/cm-plugin-update` | msutara |
-| 4 | config-manager-tui | `$CM_REPO_BASE/config-manager-tui` | msutara |
-| 5 | config-manager-web | `$CM_REPO_BASE/config-manager-web` | msutara |
+```bash
+cat "${CM_REPO_BASE:-$HOME/repo}/.cm/project.json" | jq '.'
+```
 
-### GitHub Project
-
-| Key | Value |
-| --- | --- |
-| Project ID | `PVT_kwHOAgHix84BPSxN` |
-| Review status option | `e70217cf` |
+This provides: repo names, owner, paths (`$CM_REPO_BASE/{name}`), dependency order,
+reference repo, and project board IDs. All values below are derived from the manifest.
 
 ## Step 1 — Fetch PR Comments
 
@@ -42,7 +34,7 @@ Retrieve **all** review threads for the target PR — both open and resolved.
 
 ```bash
 gh api graphql -f query='query {
-  repository(owner: "msutara", name: "{repo}") {
+  repository(owner: "{OWNER}", name: "{repo}") {
     pullRequest(number: {PR_NUMBER}) {
       reviewThreads(first: 100) {
         pageInfo { hasNextPage endCursor }
@@ -184,7 +176,7 @@ If a comment cannot be addressed in this PR cycle:
 2. Add the issue to the project board as **Backlog**.
 
    ```bash
-   itemId=$(gh project item-add 1 --owner msutara --url {ISSUE_URL} --format json | jq -r '.id')
+   itemId=$(gh project item-add {PROJECT_NUMBER} --owner {OWNER} --url {ISSUE_URL} --format json | jq -r '.id')
    ```
 
 3. Resolve the thread with a reference to the new issue.
@@ -200,7 +192,7 @@ If a comment cannot be addressed in this PR cycle:
    Then add a PR comment noting the deferral:
 
    ```bash
-   gh pr comment {PR_NUMBER} --repo msutara/{repo} \
+   gh pr comment {PR_NUMBER} --repo {OWNER}/{repo} \
      --body "Deferred to #{ISSUE_NUMBER} — tracked on the project board."
    ```
 

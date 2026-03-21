@@ -30,10 +30,16 @@ The Config Manager project enforces a **permanent parity rule**:
 
 ## Repos
 
-| UI | Path | Stack |
-| --- | --- | --- |
-| TUI | `$CM_REPO_BASE/config-manager-tui` | Bubble Tea terminal UI |
-| Web | `$CM_REPO_BASE/config-manager-web` | htmx + Go templates web UI |
+Read TUI and Web repo paths from the manifest at `$CM_REPO_BASE/.cm/project.json`:
+
+```bash
+cat "${CM_REPO_BASE:-$HOME/repo}/.cm/project.json" | jq '.repos[] | select(.role | contains("TUI") or contains("web UI"))'
+```
+
+| UI | Stack |
+| --- | --- |
+| TUI | Bubble Tea terminal UI |
+| Web | htmx + Go templates web UI |
 
 ## Procedure
 
@@ -162,8 +168,10 @@ Compile all findings into a single report with this structure:
 Ask the user whether to create GitHub issues for each gap. If approved, run:
 
 ```bash
-gh issue create --repo msutara/config-manager-web --title "Parity: Add {feature}" --body "{details}"
+gh issue create --repo {owner}/{web-repo} --title "Parity: Add {feature}" --body "{details}"
 ```
+
+(Read owner and repo names from the manifest)
 
 Create one issue per gap so they can be tracked and closed independently.
 

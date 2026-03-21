@@ -22,14 +22,9 @@ if ! [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   exit 1
 fi
 
-REPO_BASE="${CM_REPO_BASE:-$HOME/repo}"
-DEP_ORDER=(
-  config-manager-core
-  cm-plugin-network
-  cm-plugin-update
-  config-manager-tui
-  config-manager-web
-)
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=lib/load-project.sh
+source "$SCRIPT_DIR/lib/load-project.sh"
 
 for repo in "${DEP_ORDER[@]}"; do
   path="$REPO_BASE/$repo"
@@ -55,10 +50,10 @@ for repo in "${DEP_ORDER[@]}"; do
     exit 1
   fi
 
-  # Skip if already tagged at this version (check remote too)
+  # Skip if already tagged at this version (check remote explicitly)
   git -C "$path" fetch --tags --quiet 2>/dev/null || true
-  if git -C "$path" tag -l "$VERSION" | grep -q .; then
-    echo "  ⏭️  $repo already tagged at $VERSION — skipping"
+  if git -C "$path" ls-remote --tags origin "refs/tags/$VERSION" 2>/dev/null | grep -q .; then
+    echo "  ⏭️  $repo already tagged at $VERSION (remote) — skipping"
     continue
   fi
 

@@ -12,14 +12,9 @@ fi
 SOURCE_MODULE="${1:?Usage: sync-deps.sh <source-module> <version>}"
 VERSION="${2:?Usage: sync-deps.sh <source-module> <version>}"
 
-REPO_BASE="${CM_REPO_BASE:-$HOME/repo}"
-ALL_REPOS=(
-  config-manager-core
-  cm-plugin-network
-  cm-plugin-update
-  config-manager-tui
-  config-manager-web
-)
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=lib/load-project.sh
+source "$SCRIPT_DIR/lib/load-project.sh"
 
 UPDATED=()
 ERRORS=()
@@ -28,7 +23,7 @@ _tmp_files=()
 cleanup() { if [[ ${#_tmp_files[@]} -gt 0 ]]; then rm -f "${_tmp_files[@]}"; fi; }
 trap cleanup EXIT INT TERM
 
-for repo in "${ALL_REPOS[@]}"; do
+for repo in "${REPOS[@]}"; do
   path="$REPO_BASE/$repo"
   gomod="$path/go.mod"
 

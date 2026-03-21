@@ -15,15 +15,14 @@ Audit and enforce documentation parity across all 5 CM repositories.
 
 ## Repositories
 
-| # | Repo | Path |
-| --- | --- | --- |
-| 1 | `config-manager-core` | `$CM_REPO_BASE/config-manager-core` |
-| 2 | `cm-plugin-network` | `$CM_REPO_BASE/cm-plugin-network` |
-| 3 | `cm-plugin-update` | `$CM_REPO_BASE/cm-plugin-update` |
-| 4 | `config-manager-tui` | `$CM_REPO_BASE/config-manager-tui` |
-| 5 | `config-manager-web` | `$CM_REPO_BASE/config-manager-web` |
+Read repo list from the manifest at `$CM_REPO_BASE/.cm/project.json`:
 
-The **reference repo** for identical files is `config-manager-core`.
+```bash
+cat "${CM_REPO_BASE:-$HOME/repo}/.cm/project.json" | jq '.repos[] | "\(.name) → \(.role)"'
+```
+
+The **reference repo** (use `reference_repo` from manifest) is the source of truth
+for identical configuration files.
 
 ## Step 1 — Scan Configuration Files
 
@@ -42,7 +41,7 @@ Compare files that MUST be identical (or structurally identical) across all 5 re
 For each file listed above:
 
 1. Read the file from every repo. Record which repos are missing it.
-2. Diff pairwise against the reference (`config-manager-core`).
+2. Diff pairwise against the reference repo (read `reference_repo` from manifest).
 3. For **byte-identical** files — any difference is a finding.
 4. For **structurally identical** files — parse YAML, compare keys and values, allow documented repo-specific overrides.
 5. For **pattern-matching** files — verify action versions and step names match; flag divergent steps.
@@ -111,76 +110,69 @@ Generated: {timestamp}
 
 ### .markdownlint.json
 
-- ✅ config-manager-core: matches reference
-- ✅ cm-plugin-network: matches reference
-- ⚠️ cm-plugin-update: MISSING (file not found)
-- ✅ config-manager-tui: matches reference
-- ✅ config-manager-web: matches reference
+- ✅ {reference_repo}: matches reference
+- ✅ {repo2}: matches reference
+- ⚠️ {repo3}: MISSING (file not found)
+- ✅ {repo4}: matches reference
+- ✅ {repo5}: matches reference
+
+(Use actual repo names from manifest)
 
 ### .golangci.yml
 
-- ✅ All 5 repos: structurally identical (v2 format)
-- ℹ️ Web has additional staticcheck exclusion for ST1005 (capitalized errors in HTTP handlers)
+- ✅ All repos: structurally identical (v2 format)
+- ℹ️ Web repo may have additional staticcheck exclusion for ST1005 (capitalized errors in HTTP handlers)
+
+(Use actual repo names from manifest)
 
 ### dependabot.yml
 
-- ✅ All 5 repos: structurally identical
+- ✅ All repos: structurally identical
+
+(Use actual repo names from manifest)
 
 ### .github/workflows/ci.yml
 
-- ✅ All 5 repos: same actions versions (actions/checkout@v4, actions/setup-go@v5)
-- ℹ️ config-manager-web uses additional `npm ci` step (expected)
+- ✅ All repos: same actions versions (actions/checkout@v4, actions/setup-go@v5)
+- ℹ️ Web repo may use additional `npm ci` step (expected)
+
+(Use actual repo names from manifest)
 
 ### .github/PULL_REQUEST_TEMPLATE.md
 
-- ✅ All 5 repos: identical
+- ✅ All repos: identical
+
+(Use actual repo names from manifest)
 
 ## Spec Accuracy
 
-### config-manager-core
+### {reference_repo}
 
 - ✅ 12/12 API endpoints match code
 - ⚠️ SPEC.md documents `GET /api/v1/jobs/{id}/runs` but code has `GET /api/v1/jobs/{id}/runs/latest`
 
-### cm-plugin-network
-
-- ✅ 4/4 API endpoints match code
-
-### cm-plugin-update
-
-- ✅ 6/6 API endpoints match code
-
-### config-manager-tui
-
-- ℹ️ No API spec (TUI only)
-
-### config-manager-web
-
-- ⚠️ 2 endpoints in code but not in spec
+(Use actual repo names from manifest)
 
 ## copilot-instructions.md
 
-- ✅ config-manager-core: accurate
-- ✅ cm-plugin-network: accurate
-- ⚠️ cm-plugin-update: references `internal/plugin/` but interface moved to `plugin/` (stale)
-- ✅ config-manager-tui: accurate
-- ✅ config-manager-web: accurate
+- ✅ {reference_repo}: accurate
+- ⚠️ {repo2}: references `internal/plugin/` but interface moved to `plugin/` (stale)
+
+(Use actual repo names from manifest)
 
 ## README.md
 
-- ⚠️ config-manager-core: installation says v0.3.0 but latest tag is v0.4.3
-- ✅ cm-plugin-network: up-to-date
-- ✅ cm-plugin-update: up-to-date
-- ✅ config-manager-tui: up-to-date
-- ✅ config-manager-web: up-to-date
+- ⚠️ {reference_repo}: installation says v0.3.0 but latest tag is v0.4.3
+- ✅ Other repos: up-to-date
+
+(Use actual repo names from manifest)
 
 ## Markdownlint
 
-- ✅ config-manager-core: 0 violations
-- ⚠️ cm-plugin-network: 2 violations in SPEC.md (MD032: blank line around list)
-- ✅ cm-plugin-update: 0 violations
-- ✅ config-manager-tui: 0 violations
-- ✅ config-manager-web: 0 violations
+- ✅ {reference_repo}: 0 violations
+- ⚠️ {repo2}: 2 violations in SPEC.md (MD032: blank line around list)
+
+(Use actual repo names from manifest)
 
 ## Summary
 
@@ -199,7 +191,7 @@ Generated: {timestamp}
 
 ### Mechanical Fixes (safe to auto-apply)
 
-- Copy the reference file from `config-manager-core` to repos where it is missing or diverged.
+- Copy the reference file from the reference repo (read `reference_repo` from manifest) to repos where it is missing or diverged.
 - Fix markdownlint violations (trailing whitespace, missing blank lines, etc.).
 - Update version references in README installation instructions.
 

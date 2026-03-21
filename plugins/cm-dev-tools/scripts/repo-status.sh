@@ -9,14 +9,9 @@ if ! command -v git &>/dev/null; then
   exit 1
 fi
 
-REPO_BASE="${CM_REPO_BASE:-$HOME/repo}"
-REPOS=(
-  config-manager-core
-  cm-plugin-network
-  cm-plugin-update
-  config-manager-tui
-  config-manager-web
-)
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=lib/load-project.sh
+source "$SCRIPT_DIR/lib/load-project.sh"
 
 if [ "${1:-}" ]; then
   REPOS=("$1")

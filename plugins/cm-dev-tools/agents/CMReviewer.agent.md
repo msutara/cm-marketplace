@@ -17,13 +17,14 @@ Multi-perspective code review agent for the CM Go codebase. Knows the project's 
 
 ## Project Context
 
-5-repo Go ecosystem for headless Debian/ARM device management:
+Read project context from the manifest at `$CM_REPO_BASE/.cm/project.json`:
 
-- `config-manager-core` — plugin system, API, scheduler
-- `cm-plugin-network` — network configuration
-- `cm-plugin-update` — OS updates
-- `config-manager-tui` — Bubble Tea TUI
-- `config-manager-web` — htmx web UI
+```bash
+cat "${CM_REPO_BASE:-$HOME/repo}/.cm/project.json" | jq '.'
+```
+
+5-repo Go ecosystem for headless Debian/ARM device management. The manifest provides:
+repo names, paths, roles, dependency order, reference repo, owner, and project board IDs.
 
 All typically checked out under `${CM_REPO_BASE:-$HOME/repo}/{repo-name}`.
 

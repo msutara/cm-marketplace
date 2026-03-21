@@ -15,27 +15,18 @@ if ! command -v gh &>/dev/null; then
   exit 1
 fi
 
-# Verify jq is available (needed for JSON parsing)
-if ! command -v jq &>/dev/null; then
-  echo "Error: jq is required but not installed. Install with: apt install jq / brew install jq / winget install jqlang.jq" >&2
+# Requires bash 4+ for associative arrays (checked in load-project.sh)
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=lib/load-project.sh
+source "$SCRIPT_DIR/lib/load-project.sh"
+
+# project-board.sh requires project_board config in the manifest
+if [ -z "$PROJECT_NUMBER" ] || [ -z "$PROJECT_ID" ] || [ -z "$STATUS_FIELD_ID" ]; then
+  echo "Error: project_board config missing or incomplete in manifest." >&2
+  echo "Run init-project.sh to configure project board settings." >&2
   exit 1
 fi
-
-# Requires bash 4+ for associative arrays
-if ((BASH_VERSINFO[0] < 4)); then
-  echo "Error: bash 4+ required (for associative arrays). Found: $BASH_VERSION" >&2
-  echo "  macOS: brew install bash" >&2
-  exit 1
-fi
-
-PROJECT_ID="PVT_kwHOAgHix84BPSxN"
-STATUS_FIELD_ID="PVTSSF_lAHOAgHix84BPSxNzg9vkrk"
-declare -A STATUS_OPTIONS=(
-  [Backlog]="f75ad846"
-  [InProgress]="47fc9ee4"
-  [Review]="e70217cf"
-  [Done]="98236657"
-)
 
 URL=""
 STATUS=""
@@ -85,7 +76,7 @@ ADDED_ITEM_ID=""
 if [ -n "$URL" ]; then
   echo "Adding $URL to project board..."
   _gh_add_err=$(mktemp "${TMPDIR:-/tmp}/cm-project-board.XXXXXX"); _cleanup_files+=("$_gh_add_err")
-  if add_result=$(gh project item-add 1 --owner msutara --url "$URL" --format json 2>"$_gh_add_err"); then
+  if add_result=$(gh project item-add "$PROJECT_NUMBER" --owner "$OWNER" --url "$URL" --format json 2>"$_gh_add_err"); then
     if ! ADDED_ITEM_ID=$(echo "$add_result" | jq -er '.id // empty' 2>/dev/null); then
       echo "  ❌ Failed to parse project item ID from gh output." >&2
       echo "      Raw output: $add_result" >&2
@@ -107,7 +98,7 @@ fi
 if [ -n "$STATUS" ]; then
   option_id="${STATUS_OPTIONS[$STATUS]:-}"
   if [ -z "$option_id" ]; then
-    echo "Error: Invalid status '$STATUS'. Use: Backlog, InProgress, Review, Done" >&2
+    echo "Error: Invalid status '$STATUS'. Available: ${!STATUS_OPTIONS[*]}" >&2
     exit 1
   fi
 
@@ -116,7 +107,7 @@ if [ -n "$STATUS" ]; then
     ITEM_ID="$ADDED_ITEM_ID"
   fi
   if [ -z "$ITEM_ID" ] && [ -n "$URL" ]; then
-    ITEM_ID=$(gh project item-list 1 --owner msutara --limit 500 --format json 2>/dev/null \
+    ITEM_ID=$(gh project item-list "$PROJECT_NUMBER" --owner "$OWNER" --limit 500 --format json 2>/dev/null \
       | jq -r --arg url "$URL" '.items[] | select(.content.url == $url) | .id' 2>/dev/null || true)
   fi
 

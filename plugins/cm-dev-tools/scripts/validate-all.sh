@@ -5,14 +5,8 @@
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-REPO_BASE="${CM_REPO_BASE:-$HOME/repo}"
-REPOS=(
-  config-manager-core
-  cm-plugin-network
-  cm-plugin-update
-  config-manager-tui
-  config-manager-web
-)
+# shellcheck source=lib/load-project.sh
+source "$SCRIPT_DIR/lib/load-project.sh"
 ALL_PASSED=0
 SUMMARIES=()
 

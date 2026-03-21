@@ -26,23 +26,22 @@ You are the Config Manager (CM) project expert — an autonomous full-stack deve
 - **What:** Modular config management system compiled into a single Go binary
 - **Targets:** Raspbian Bookworm (ARM64), Debian Bullseye slim
 - **Architecture:** Plugin system + TUI (Bubble Tea) + REST API (Chi) + Web UI (htmx) + Job Scheduler
-- **Owner:** `msutara` on GitHub
+- **Owner:** Read from `$CM_REPO_BASE/.cm/project.json` → `.owner`
 
 ### Repositories
 
-All repos live at `${CM_REPO_BASE:-$HOME/repo}/{repo-name}`:
+Read project context from the manifest at `$CM_REPO_BASE/.cm/project.json`:
 
-| Repo | Purpose |
-| --- | --- |
-| `config-manager-core` | Central service, plugin registry, scheduler, API |
-| `cm-plugin-network` | Network interface configuration plugin |
-| `cm-plugin-update` | OS/package update management plugin |
-| `config-manager-tui` | Terminal UI (Bubble Tea + lipgloss) |
-| `config-manager-web` | Web UI (htmx + Go html/template) |
+```bash
+cat "${CM_REPO_BASE:-$HOME/repo}/.cm/project.json" | jq '.'
+```
+
+This provides: repo names, owner, paths, roles, dependency order, reference repo,
+and project board IDs. All repos live at `${CM_REPO_BASE:-$HOME/repo}/{repo-name}`.
 
 ### Dependency Order
 
-core → plugins (network, update) → tui → web
+Use the `dep_order` array from the manifest (e.g., core → plugins → tui → web).
 
 ### Architecture
 
@@ -143,10 +142,11 @@ When implementing a feature or fix that touches either UI, always check whether 
 
 ### GitHub Project Board
 
-- **Project URL:** <https://github.com/users/msutara/projects/1>
-- **Project ID:** `PVT_kwHOAgHix84BPSxN`
-- **Status Field ID:** `PVTSSF_lAHOAgHix84BPSxNzg9vkrk`
-- **Status Option IDs:** Backlog `f75ad846` · In Progress `47fc9ee4` · Review `e70217cf` · Done `98236657`
+Read project board IDs from the manifest:
+
+```bash
+cat "${CM_REPO_BASE:-$HOME/repo}/.cm/project.json" | jq '.project_board'
+```
 
 ## Workflow
 
