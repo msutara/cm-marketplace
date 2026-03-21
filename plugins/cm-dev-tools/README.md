@@ -36,6 +36,12 @@ GitHub Copilot CLI and Claude Code.
 | **CMDeveloper** | Full-stack CM development with embedded project knowledge |
 | **CMReviewer** | Code review specialist with fleet config and false positive suppression |
 
+### Tools (1)
+
+| Tool | Purpose |
+| --- | --- |
+| `ensure-prerequisites.mjs` | Preflight check — verifies all required CLIs are installed and meet minimum versions |
+
 ## Install
 
 ```bash
@@ -55,3 +61,5 @@ claude plugin install cm-dev-tools@cm-marketplace
 - **gh CLI** — PR and project board operations
 - **jq** — JSON processing (required by all manifest-driven scripts)
 - **bash 4+** — required for all manifest-driven scripts (associative arrays)
+
+Run `node plugins/cm-dev-tools/tools/ensure-prerequisites.mjs` to check all at once.

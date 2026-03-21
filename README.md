@@ -208,6 +208,9 @@ copilot plugin install cm-dev-tools@cm-marketplace
 - **bash 4+** — for helper scripts (native on Linux, `brew install bash` on macOS, Git Bash on Windows)
 - **gh CLI** — for PR and project board scripts
 - **jq** — for reading project manifest and JSON processing
+- **shellcheck** — for CI shell linting
+
+Run `node plugins/cm-dev-tools/tools/ensure-prerequisites.mjs` to verify all at once.
 
 ### For target CM repos (used by skills at runtime)
 
