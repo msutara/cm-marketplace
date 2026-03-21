@@ -211,6 +211,7 @@ copilot plugin install cm-dev-tools@cm-marketplace
 - **shellcheck** — for CI shell linting
 
 Run `node plugins/cm-dev-tools/tools/ensure-prerequisites.mjs` to verify all at once.
+Add `--install` to auto-install missing tools.
 
 ### For target CM repos (used by skills at runtime)
 

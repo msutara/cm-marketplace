@@ -9,7 +9,11 @@
  *
  * Exit codes:
  *   0 — all prerequisites satisfied (possibly after auto-install)
- *   1 — one or more prerequisites still missing after install attempts
+ *   1 — one or more prerequisites still missing
+ *
+ * Usage:
+ *   node ensure-prerequisites.mjs            # check only
+ *   node ensure-prerequisites.mjs --install  # check + auto-install missing
  */
 
 import { execFileSync, execSync } from "node:child_process";
@@ -18,6 +22,7 @@ import { existsSync } from "node:fs";
 const isWindows = process.platform === "win32";
 const isMac = process.platform === "darwin";
 const isLinux = process.platform === "linux";
+const autoInstall = process.argv.includes("--install");
 
 // ── Windows fallback paths ───────────────────────────────────────────────────
 // On Windows, tools installed via Git-for-Windows, winget, scoop, or chocolatey
@@ -260,12 +265,11 @@ function tryInstall(prereq) {
 
   log(`    ${colour.yellow("⟳")} Installing ${prereq.name}...`);
   try {
-    execSync(cmd, { stdio: ["pipe", "pipe", "pipe"], timeout: 120_000 });
+    execSync(cmd, { stdio: "inherit", timeout: 120_000 });
     log(`    ${colour.green("✓")} Installed successfully`);
     return true;
-  } catch (err) {
-    const stderr = err.stderr?.toString().trim().split("\n")[0] ?? "";
-    log(`    ${colour.red("✗")} Install failed${stderr ? `: ${stderr}` : ""}`);
+  } catch {
+    log(`    ${colour.red("✗")} Install failed (see output above for details)`);
     return false;
   }
 }
@@ -280,7 +284,7 @@ for (const prereq of prerequisites) {
   let result = tryExecWithFallback(prereq.name, prereq.cmd, prereq.args);
 
   // If missing or failed, attempt auto-install then re-check
-  if (!result.ok) {
+  if (!result.ok && autoInstall) {
     const installed = tryInstall(prereq);
     if (installed) {
       result = tryExecWithFallback(prereq.name, prereq.cmd, prereq.args);
@@ -330,7 +334,10 @@ for (const prereq of prerequisites) {
 log("");
 
 if (failures > 0) {
-  log(colour.red(`${failures} prerequisite(s) not met. Fix the above before continuing.\n`));
+  const hint = autoInstall
+    ? ""
+    : ` Run with ${colour.bold("--install")} to auto-install missing tools.`;
+  log(`${colour.red(`${failures} prerequisite(s) not met.`) + hint}\n`);
   process.exit(1);
 } else {
   log(colour.green("All prerequisites satisfied.\n"));

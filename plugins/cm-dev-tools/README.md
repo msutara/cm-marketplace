@@ -65,7 +65,8 @@ claude plugin install cm-dev-tools@cm-marketplace
 - **git** — required by all scripts
 - **shellcheck** — for CI shell linting
 
-From the repository root, run `node plugins/cm-dev-tools/tools/ensure-prerequisites.mjs` to check and install all at once.
+From the repository root, run `node plugins/cm-dev-tools/tools/ensure-prerequisites.mjs` to check all at once.
+Add `--install` to auto-install missing tools.
 
 ### For target CM repos (used by skills at runtime)
 
