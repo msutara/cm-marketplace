@@ -31,15 +31,15 @@ The Config Manager project enforces a **permanent parity rule**:
 ## Repos
 
 Read TUI and Web repo paths from `.cm/project.json` if available. Discovery order:
-`$CM_REPO_BASE` → parent directory → `$HOME/repo`. If no manifest is found,
+`$CM_REPO_BASE` → cwd → parent directory → `$HOME/repo`. If no manifest is found,
 ask the user for the required values before proceeding.
 
 ```bash
-# Discover project manifest (recommended — ask user for context if unavailable)
+# Discover project manifest: $CM_REPO_BASE → cwd → parent → $HOME/repo (optional — ask user for context if unavailable)
 _cm="${CM_REPO_BASE:+$CM_REPO_BASE/.cm/project.json}"
-[ -f "${_cm:-}" ] || _cm=".cm/project.json"
-[ -f "$_cm" ] || _cm="../.cm/project.json"
-[ -f "$_cm" ] || _cm="$HOME/repo/.cm/project.json"
+[ -f "${_cm:-}" ] || _cm=".cm/project.json"          # cwd
+[ -f "$_cm" ] || _cm="../.cm/project.json"            # parent dir
+[ -f "$_cm" ] || _cm="$HOME/repo/.cm/project.json"   # fallback
 if [ -f "$_cm" ]; then
   jq '.repos[] | select((.role // "") | (contains("TUI") or contains("web UI")))' "$_cm"
 else

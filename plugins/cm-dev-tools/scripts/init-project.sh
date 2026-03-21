@@ -73,8 +73,8 @@ while true; do
     echo "    ⚠️  Empty repo name — skipped" >&2
     continue
   fi
-  if [[ ! "$repo" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then
-    echo "    ⚠️  Invalid repo name '$repo' — must start with [A-Za-z0-9] and match [A-Za-z0-9._-]+" >&2
+  if [[ ! "$repo" =~ ^[A-Za-z0-9._-]+$ ]] || [[ "$repo" == "." || "$repo" == ".." ]]; then
+    echo "    ⚠️  Invalid repo name '$repo' — must match [A-Za-z0-9._-]+ and not be '.' or '..'" >&2
     continue
   fi
   if [[ "$repo_input" == *:* ]]; then

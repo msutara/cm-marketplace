@@ -18,15 +18,15 @@ Multi-perspective code review agent for the CM Go codebase. Knows the project's 
 ## Project Context
 
 Read project context from `.cm/project.json` if available. Discovery order:
-`$CM_REPO_BASE` → parent directory → `$HOME/repo`. If no manifest is found,
+`$CM_REPO_BASE` → cwd → parent directory → `$HOME/repo`. If no manifest is found,
 ask the user for the required values before proceeding.
 
 ```bash
-# Discover project manifest (recommended — ask user for context if unavailable)
+# Discover project manifest: $CM_REPO_BASE → cwd → parent → $HOME/repo (optional — ask user for context if unavailable)
 _cm="${CM_REPO_BASE:+$CM_REPO_BASE/.cm/project.json}"
-[ -f "${_cm:-}" ] || _cm=".cm/project.json"
-[ -f "$_cm" ] || _cm="../.cm/project.json"
-[ -f "$_cm" ] || _cm="$HOME/repo/.cm/project.json"
+[ -f "${_cm:-}" ] || _cm=".cm/project.json"          # cwd
+[ -f "$_cm" ] || _cm="../.cm/project.json"            # parent dir
+[ -f "$_cm" ] || _cm="$HOME/repo/.cm/project.json"   # fallback
 if [ -f "$_cm" ]; then
   jq '.' "$_cm"
 else
@@ -61,7 +61,7 @@ All repos are sibling directories under the manifest's parent directory.
 
 ### Group C — Platform Reviewer Simulation
 
-1. **GitHub Copilot Perspective** (`gpt-5.4`) — unvalidated inputs, missing existence guards, defensive coding gaps, stale docs/counts, inconsistent patterns
+1. **GitHub Copilot Perspective** (`gpt-5.4`) — **Key behavior: checks if patterns fixed in the diff exist unfixed elsewhere.** Also: unvalidated inputs, missing existence guards, defensive coding gaps, stale docs/counts, inconsistent patterns, regex consistency, UUOC, error stderr, path traversal
 
 ## Known CM-Specific Issues to Watch For
 

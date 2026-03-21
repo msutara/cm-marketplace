@@ -18,15 +18,15 @@ always resolve to published versions.
 ## Project Context
 
 Read project context from `.cm/project.json` if available. Discovery order:
-`$CM_REPO_BASE` → parent directory → `$HOME/repo`. If no manifest is found,
+`$CM_REPO_BASE` → cwd → parent directory → `$HOME/repo`. If no manifest is found,
 ask the user for the required values before proceeding.
 
 ```bash
-# Discover project manifest (recommended — ask user for context if unavailable)
+# Discover project manifest: $CM_REPO_BASE → cwd → parent → $HOME/repo (optional — ask user for context if unavailable)
 _cm="${CM_REPO_BASE:+$CM_REPO_BASE/.cm/project.json}"
-[ -f "${_cm:-}" ] || _cm=".cm/project.json"
-[ -f "$_cm" ] || _cm="../.cm/project.json"
-[ -f "$_cm" ] || _cm="$HOME/repo/.cm/project.json"
+[ -f "${_cm:-}" ] || _cm=".cm/project.json"          # cwd
+[ -f "$_cm" ] || _cm="../.cm/project.json"            # parent dir
+[ -f "$_cm" ] || _cm="$HOME/repo/.cm/project.json"   # fallback
 if [ -f "$_cm" ]; then
   jq '.' "$_cm"
 else
@@ -58,10 +58,11 @@ If a bump type is given instead of an explicit version, calculate the next versi
 from the latest tag on the reference repo (read `reference_repo` from the manifest):
 
 ```bash
+# Discover project manifest: $CM_REPO_BASE → cwd → parent → $HOME/repo (optional — ask user for context if unavailable)
 _cm="${CM_REPO_BASE:+$CM_REPO_BASE/.cm/project.json}"
-[ -f "${_cm:-}" ] || _cm=".cm/project.json"
-[ -f "$_cm" ] || _cm="../.cm/project.json"
-[ -f "$_cm" ] || _cm="$HOME/repo/.cm/project.json"
+[ -f "${_cm:-}" ] || _cm=".cm/project.json"          # cwd
+[ -f "$_cm" ] || _cm="../.cm/project.json"            # parent dir
+[ -f "$_cm" ] || _cm="$HOME/repo/.cm/project.json"   # fallback
 if [ -f "$_cm" ]; then
   referenceRepo=$(jq -r '.reference_repo' "$_cm")
   latestTag=$(git -C "$(dirname "$(dirname "$_cm")")/${referenceRepo}" describe --tags --abbrev=0 2>/dev/null)
@@ -94,10 +95,11 @@ a matrix and report the first failure.
 | 6 | MD lint    | `markdownlint-cli2`      | Exit code 0   |
 
 ```bash
+# Discover project manifest: $CM_REPO_BASE → cwd → parent → $HOME/repo (optional — ask user for context if unavailable)
 _cm="${CM_REPO_BASE:+$CM_REPO_BASE/.cm/project.json}"
-[ -f "${_cm:-}" ] || _cm=".cm/project.json"
-[ -f "$_cm" ] || _cm="../.cm/project.json"
-[ -f "$_cm" ] || _cm="$HOME/repo/.cm/project.json"
+[ -f "${_cm:-}" ] || _cm=".cm/project.json"          # cwd
+[ -f "$_cm" ] || _cm="../.cm/project.json"            # parent dir
+[ -f "$_cm" ] || _cm="$HOME/repo/.cm/project.json"   # fallback
 if [ -f "$_cm" ]; then
   base="$(cd "$(dirname "$_cm")/.." && pwd)"
   # Read dep_order from manifest
@@ -374,10 +376,11 @@ If repos are added or removed between releases, update the project manifest
 **before** starting the release flow:
 
 ```bash
+# Discover project manifest: $CM_REPO_BASE → cwd → parent → $HOME/repo (optional — ask user for context if unavailable)
 _cm="${CM_REPO_BASE:+$CM_REPO_BASE/.cm/project.json}"
-[ -f "${_cm:-}" ] || _cm=".cm/project.json"
-[ -f "$_cm" ] || _cm="../.cm/project.json"
-[ -f "$_cm" ] || _cm="$HOME/repo/.cm/project.json"
+[ -f "${_cm:-}" ] || _cm=".cm/project.json"          # cwd
+[ -f "$_cm" ] || _cm="../.cm/project.json"            # parent dir
+[ -f "$_cm" ] || _cm="$HOME/repo/.cm/project.json"   # fallback
 if [ -f "$_cm" ]; then
   # Verify manifest matches the repos you intend to release
   jq '.repos[].name, .dep_order[]' "$_cm"

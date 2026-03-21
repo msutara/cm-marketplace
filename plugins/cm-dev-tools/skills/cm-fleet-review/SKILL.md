@@ -47,7 +47,7 @@ inconsistencies, stale comments, and cross-file issues. Model diversity across
 
 | # | Role | Model | Focus |
 | --- | --- | --- | --- |
-| 11 | GitHub Copilot Perspective | gpt-5.4 | Simulates GitHub's Copilot auto-reviewer: unvalidated external inputs, missing existence guards before file access, missing dependency checks, defensive coding gaps (unchecked return values, empty vars in paths, unquoted vars), inconsistent patterns across files, stale docs/comments/counts. Every value from JSON/env/user input must be validated. Every file/dir access must be guarded. |
+| 11 | GitHub Copilot Perspective | gpt-5.4 | Simulates GitHub's Copilot auto-reviewer. **Key behavior: Copilot checks if patterns fixed in the diff exist unfixed in other files** — this is its primary comment source. Also checks: unvalidated external inputs, missing existence guards, defensive coding gaps (unchecked return values, empty vars in paths, unquoted vars), inconsistent patterns across files, stale docs/comments/counts, regex consistency, UUOC, error output to stderr, path traversal via `.`/`..`. Every value from JSON/env/user input must be validated. Every file/dir access must be guarded. |
 
 ---
 
@@ -136,9 +136,53 @@ in its assigned checklist. Do not skip items.
 □ PR description: matches actual implementation
 ```
 
----
+### Agent 11 — GitHub Copilot Perspective
 
-## Prompt Template
+```text
+□ Fix propagation: for every pattern changed in the diff, check if the OLD
+  pattern exists UNFIXED in any other file. Copilot reviews full files and
+  cross-references what was fixed against what remains — this is its #1 source
+  of comments.
+□ Regex consistency: same input type must use same regex across all scripts
+  (e.g., repo names validated identically in load-project.sh, init-project.sh,
+  repo-status.sh)
+□ Path traversal: every input used as a path segment rejects literal "." and
+  ".." (dot-prefixed names like `.github` are valid)
+□ Error output: every error-path echo uses "Error:" prefix + >&2
+□ UUOC: no cat file | command — use $(<file) or direct argument
+□ Manifest snippets: identical 5-line cascade (header + 4 checks with inline comments) in every skill/agent
+□ Comment/wording: same pattern = same words across all files
+□ Stale docs: counts, descriptions, examples match actual implementation
+□ Unquoted $() assignments: must be VAR="$(...)" for space safety
+□ Hardcoded values: status names, repo names, owner names should be
+  manifest-driven or use placeholders
+□ Else branches: error messages to stderr, consistent wording, exit on required
+  paths
+□ Script paths in skills: repo-root-relative, not cwd-relative
+□ Usage/help text: hardcoded examples must match dynamic behavior. If a script
+  reads statuses from manifest, usage text must not list fixed statuses.
+□ Overly restrictive guards: validation must not block legitimate input. E.g.,
+  a ".." check must not reject repo paths like "../sibling-repo". Test guards
+  against real-world values.
+□ CI workflow safety: every cd in CI must be in a subshell or use || exit 1 to
+  propagate failures. Grep exit code 2 must not be silently swallowed.
+□ Action versions: actions/checkout, setup-go, markdownlint-cli2-action — must
+  be consistent across ci.yml, skills, and scaffold templates.
+□ Untrimmed user input: EVERY read -rp value must be trimmed before validation.
+  Whitespace-only input must be treated as empty.
+□ Error message vs regex mismatch: if validation uses ^[A-Za-z0-9]..., the
+  error message must describe that exact pattern, not a different one.
+□ Mutually exclusive args: if --url and --item-id cannot coexist, the script
+  must reject both being set — not silently prefer one.
+□ Tilde expansion: ~ does not expand inside quotes or variable assignment. If
+  user input may contain ~/path, handle expansion explicitly (e.g., substring
+  check for ~/ prefix and replace with $HOME).
+□ Manifest-missing exit: if a code path requires manifest data and the manifest
+  is absent, it must exit 1 or return error — never silently fall through or
+  continue with empty values.
+```
+
+---
 
 Each agent receives this prompt with its role, checklist, and file contents
 injected. The template MUST be used verbatim — do not paraphrase or abbreviate.
@@ -324,8 +368,8 @@ class before moving on. **Never fix one instance and leave others.**
 **Pattern sweep rules:**
 
 1. **Regex fix** → grep ALL regex validations in ALL scripts. Same input type =
-   same regex. All path-segment inputs must require first char alphanumeric
-   (`^[A-Za-z0-9]...`) and reject `.`/`..`.
+   same regex. All path-segment inputs must reject literal `.` and `..`
+   (dot-prefixed names like `.github` are valid).
 2. **Error message fix** → grep ALL `echo` calls on error paths. Ensure: `Error:`
    prefix, `>&2`, consistent wording.
 3. **Code snippet fix** → grep ALL files containing that snippet. If a snippet

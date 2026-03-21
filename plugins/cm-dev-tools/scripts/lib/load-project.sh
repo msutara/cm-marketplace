@@ -83,10 +83,10 @@ if ! jq -e '
   .repos
   and (.repos | type == "array")
   and (.repos | length > 0)
-  and all(.repos[]; (.name | type == "string" and . != "" and test("^[A-Za-z0-9][A-Za-z0-9._-]*$")))
+  and all(.repos[]; (.name | type == "string" and . != "" and . != "." and . != ".." and test("^[A-Za-z0-9._-]+$")))
   and ((.repos | map(.name) | unique | length) == (.repos | length))
 ' "$_PROJECT_JSON" >/dev/null; then
-  echo "Error: 'repos' must be a non-empty array; each 'name' must start with [A-Za-z0-9], be unique, and match [A-Za-z0-9._-]+ in $_PROJECT_JSON" >&2
+  echo "Error: 'repos' must be a non-empty array; each 'name' must be non-empty, unique, not '.'/'..', and match [A-Za-z0-9._-]+ in $_PROJECT_JSON" >&2
   return 1 2>/dev/null || exit 1
 fi
 

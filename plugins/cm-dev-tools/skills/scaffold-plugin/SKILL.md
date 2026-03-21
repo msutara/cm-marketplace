@@ -18,15 +18,15 @@ and the plugin registered in the core binary.
 ## Project Context
 
 Read project context from `.cm/project.json` if available. Discovery order:
-`$CM_REPO_BASE` → parent directory → `$HOME/repo`. If no manifest is found,
+`$CM_REPO_BASE` → cwd → parent directory → `$HOME/repo`. If no manifest is found,
 ask the user for the required values before proceeding.
 
 ```bash
-# Discover project manifest (recommended — ask user for context if unavailable)
+# Discover project manifest: $CM_REPO_BASE → cwd → parent → $HOME/repo (optional — ask user for context if unavailable)
 _cm="${CM_REPO_BASE:+$CM_REPO_BASE/.cm/project.json}"
-[ -f "${_cm:-}" ] || _cm=".cm/project.json"
-[ -f "$_cm" ] || _cm="../.cm/project.json"
-[ -f "$_cm" ] || _cm="$HOME/repo/.cm/project.json"
+[ -f "${_cm:-}" ] || _cm=".cm/project.json"          # cwd
+[ -f "$_cm" ] || _cm="../.cm/project.json"            # parent dir
+[ -f "$_cm" ] || _cm="$HOME/repo/.cm/project.json"   # fallback
 if [ -f "$_cm" ]; then
   jq '.' "$_cm"
 else
@@ -1241,10 +1241,11 @@ Edit `config-manager-core/cmd/cm/main.go` (sibling repo under the manifest's par
 3. Run `go mod tidy` in `config-manager-core` to pull the new dependency:
 
    ```bash
+   # Discover project manifest: $CM_REPO_BASE → cwd → parent → $HOME/repo (optional — ask user for context if unavailable)
    _cm="${CM_REPO_BASE:+$CM_REPO_BASE/.cm/project.json}"
-   [ -f "${_cm:-}" ] || _cm=".cm/project.json"
-   [ -f "$_cm" ] || _cm="../.cm/project.json"
-   [ -f "$_cm" ] || _cm="$HOME/repo/.cm/project.json"
+   [ -f "${_cm:-}" ] || _cm=".cm/project.json"          # cwd
+   [ -f "$_cm" ] || _cm="../.cm/project.json"            # parent dir
+   [ -f "$_cm" ] || _cm="$HOME/repo/.cm/project.json"   # fallback
    if [ -f "$_cm" ]; then
      _base="$(cd "$(dirname "$_cm")/.." && pwd)"
      _ref="$(jq -r '.reference_repo' "$_cm")"
@@ -1341,10 +1342,11 @@ Before reporting completion, verify all of the following:
 After the plugin repo is created, update the project manifest so scripts discover it:
 
 ```bash
+# Discover project manifest: $CM_REPO_BASE → cwd → parent → $HOME/repo (optional — ask user for context if unavailable)
 _cm="${CM_REPO_BASE:+$CM_REPO_BASE/.cm/project.json}"
-[ -f "${_cm:-}" ] || _cm=".cm/project.json"
-[ -f "$_cm" ] || _cm="../.cm/project.json"
-[ -f "$_cm" ] || _cm="$HOME/repo/.cm/project.json"
+[ -f "${_cm:-}" ] || _cm=".cm/project.json"          # cwd
+[ -f "$_cm" ] || _cm="../.cm/project.json"            # parent dir
+[ -f "$_cm" ] || _cm="$HOME/repo/.cm/project.json"   # fallback
 if [ -f "$_cm" ]; then
   # Only add if not already present
   if ! jq -e '.repos[] | select(.name == "cm-plugin-{name}")' "$_cm" >/dev/null 2>&1; then
