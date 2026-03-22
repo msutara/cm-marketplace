@@ -31,7 +31,8 @@ const require = createRequire(resolve(repoRoot, "package.json"));
 
 function depsInstalled() {
   try {
-    require.resolve("@modelcontextprotocol/sdk");
+    require.resolve("@modelcontextprotocol/sdk/server/mcp.js");
+    require.resolve("@modelcontextprotocol/sdk/server/stdio.js");
     require.resolve("zod");
     return true;
   } catch {
