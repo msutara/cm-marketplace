@@ -200,17 +200,13 @@ Closes #{issue_number}
 
 ### Phase 8 — Project Board
 
-Add the PR to the GitHub project and set status to **Review**:
+Add the PR to the GitHub project and set its status (from the marketplace
+repo root). The `--status` value must match a key in
+`.project_board.statuses` from `.cm/project.json` (defaults: `Backlog`,
+`InProgress`, `Review`, `Done`):
 
 ```bash
-gh project item-add {PROJECT_NUMBER} --owner {OWNER} --url {PR_URL}
-```
-
-Then update the item status to the review status defined in `.cm/project.json`
-(from the marketplace repo root):
-
-```bash
-./plugins/cm-dev-tools/scripts/project-board.sh --url {PR_URL} --status {REVIEW_STATUS}
+./plugins/cm-dev-tools/scripts/project-board.sh --url {PR_URL} --status Review
 ```
 
 ### Phase 9 — Monitor CI
@@ -268,7 +264,9 @@ gh pr merge {PR_NUMBER} --squash --delete-branch
 Post-merge cleanup:
 
 ```bash
-# Update project board status to Done (use project-board.sh)
+# Update project board status (from the marketplace repo root;
+# key must match .cm/project.json statuses)
+./plugins/cm-dev-tools/scripts/project-board.sh --url {PR_URL} --status Done
 
 # Prune stale remote refs
 git remote update origin --prune
@@ -295,7 +293,7 @@ git status
 | 5. Commit | conventional commit + trailer | ⚠️ Amend only |
 | 6. Push | feature branch only, never main | ⚠️ Force-push only |
 | 7. Create PR | gh pr create | ⚠️ Close to undo |
-| 8. Project Board | set status to Review | ✅ Yes |
+| 8. Project Board | set status from manifest | ✅ Yes |
 | 9. Monitor CI | all checks must pass | ✅ Yes |
 | 10. PR Comments | triage + fix + resolve threads | ✅ Yes |
 | 11. Merge | **user approval required**, squash merge | ❌ No |

@@ -336,12 +336,14 @@ investigation. Do **not** mark the release as complete.
 
 ### Update GitHub project board
 
-Set all release-related items to the completion status defined in
-`.cm/project.json` (from the marketplace repo root):
+Set all release-related items to the completion status (from the marketplace
+repo root). The `--status` value must match a key in
+`.project_board.statuses` from `.cm/project.json` (defaults: `Backlog`,
+`InProgress`, `Review`, `Done`):
 
 ```bash
 # For each release-related PR or issue URL:
-./plugins/cm-dev-tools/scripts/project-board.sh --url {ITEM_URL} --status {DONE_STATUS}
+./plugins/cm-dev-tools/scripts/project-board.sh --url {ITEM_URL} --status Done
 ```
 
 ### Pull latest tags locally

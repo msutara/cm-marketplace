@@ -126,7 +126,15 @@ go 1.24.0
 
 require github.com/go-chi/chi/v5 v5.2.5
 
-require github.com/{OWNER}/config-manager-core v0.4.3
+require github.com/{OWNER}/config-manager-core v0.0.0
+```
+
+Before running `go mod tidy`, replace the placeholder `v0.0.0` with the latest
+tag from `config-manager-core` (the core dependency all plugins import):
+
+```bash
+_ver=$(git -C "$CM_REPO_BASE/config-manager-core" describe --tags --abbrev=0)
+sed -i.bak "s|config-manager-core v0.0.0|config-manager-core $_ver|" go.mod && rm -f go.mod.bak
 ```
 
 After writing the file, run:
