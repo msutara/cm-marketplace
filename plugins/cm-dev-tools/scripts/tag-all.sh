@@ -82,7 +82,13 @@ fi
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=lib/load-project.sh
-source "$SCRIPT_DIR/lib/load-project.sh"
+if ! source "$SCRIPT_DIR/lib/load-project.sh"; then
+  echo "Error: failed to load project manifest." >&2
+  if $JSON_OUTPUT; then
+    printf '{"ok":false,"tool":"tag-all","data":null,"error":"failed to load project manifest."}\n'
+  fi
+  exit 1
+fi
 
 # JSON accumulators
 _json_repos=()
@@ -150,7 +156,15 @@ for repo in "${DEP_ORDER[@]}"; do
         _json_repos+=("$(jq -nc --arg name "$repo" --arg tag "$VERSION" '{name: $name, action: "would_push", tag: $tag}')")
       else
         log "  📤 $repo has local tag $VERSION but not on remote — pushing..."
-        git -C "$path" push origin "$VERSION"
+        if ! _git_out=$(git -C "$path" push origin "$VERSION" 2>&1); then
+          echo "Error: failed to push tag $VERSION for $repo" >&2
+          echo "$_git_out" >&2
+          if $JSON_OUTPUT; then
+            jq -nc --arg error "failed to push existing tag $VERSION for $repo" \
+              '{ok: false, tool: "tag-all", data: null, error: $error}'
+          fi
+          exit 1
+        fi
         _json_repos+=("$(jq -nc --arg name "$repo" --arg tag "$VERSION" '{name: $name, action: "pushed", tag: $tag}')")
       fi
     else
@@ -172,8 +186,24 @@ for repo in "${DEP_ORDER[@]}"; do
     _json_repos+=("$(jq -nc --arg name "$repo" --arg tag "$VERSION" '{name: $name, action: "would_tag", tag: $tag}')")
   else
     log "Tagging $repo at $VERSION..."
-    git -C "$path" tag "$VERSION"
-    git -C "$path" push origin "$VERSION"
+    if ! _git_out=$(git -C "$path" tag "$VERSION" 2>&1); then
+      echo "Error: failed to create tag $VERSION for $repo" >&2
+      echo "$_git_out" >&2
+      if $JSON_OUTPUT; then
+        jq -nc --arg error "failed to create tag $VERSION for $repo" \
+          '{ok: false, tool: "tag-all", data: null, error: $error}'
+      fi
+      exit 1
+    fi
+    if ! _git_out=$(git -C "$path" push origin "$VERSION" 2>&1); then
+      echo "Error: failed to push tag $VERSION for $repo" >&2
+      echo "$_git_out" >&2
+      if $JSON_OUTPUT; then
+        jq -nc --arg error "failed to push tag $VERSION for $repo" \
+          '{ok: false, tool: "tag-all", data: null, error: $error}'
+      fi
+      exit 1
+    fi
     log "  ✅ $repo tagged and pushed $VERSION"
     _json_repos+=("$(jq -nc --arg name "$repo" --arg tag "$VERSION" '{name: $name, action: "tagged", tag: $tag}')")
   fi

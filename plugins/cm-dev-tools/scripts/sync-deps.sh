@@ -85,7 +85,13 @@ fi
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=lib/load-project.sh
-source "$SCRIPT_DIR/lib/load-project.sh"
+if ! source "$SCRIPT_DIR/lib/load-project.sh"; then
+  echo "Error: failed to load project manifest." >&2
+  if $JSON_OUTPUT; then
+    printf '{"ok":false,"tool":"sync-deps","data":null,"error":"failed to load project manifest."}\n'
+  fi
+  exit 1
+fi
 
 UPDATED=()
 ERRORS=()

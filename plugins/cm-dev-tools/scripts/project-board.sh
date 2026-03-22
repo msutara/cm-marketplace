@@ -34,6 +34,7 @@ log() {
     echo "$@"
   fi
 }
+log_err() { echo "$@" >&2; }
 
 # Helper: emit JSON error and exit
 json_error() {
@@ -62,7 +63,13 @@ fi
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=lib/load-project.sh
-source "$SCRIPT_DIR/lib/load-project.sh"
+if ! source "$SCRIPT_DIR/lib/load-project.sh"; then
+  echo "Error: failed to load project manifest." >&2
+  if $JSON_OUTPUT; then
+    json_error "failed to load project manifest."
+  fi
+  exit 1
+fi
 
 # project-board.sh requires project_board config in the manifest
 if [[ -z "$PROJECT_NUMBER" || "$PROJECT_NUMBER" == "null" || \
@@ -152,13 +159,13 @@ if [ -n "$URL" ]; then
   _gh_add_err=$(mktemp "${TMPDIR:-/tmp}/cm-project-board.XXXXXX"); _cleanup_files+=("$_gh_add_err")
   if add_result=$(gh project item-add "$PROJECT_NUMBER" --owner "$OWNER" --url "$URL" --format json 2>"$_gh_add_err"); then
     if ! ADDED_ITEM_ID=$(printf '%s' "$add_result" | jq -er '.id // empty' 2>/dev/null); then
-      log "  ❌ Failed to parse project item ID from gh output."
+      log_err "  ❌ Failed to parse project item ID from gh output."
       echo "      Raw output: $add_result" >&2
       json_error "Failed to parse project item ID from gh output." "add" "$URL"
       exit 1
     fi
     if [ -z "$ADDED_ITEM_ID" ] || [ "$ADDED_ITEM_ID" = "null" ]; then
-      log "  ❌ Project item ID is missing or null in gh output."
+      log_err "  ❌ Project item ID is missing or null in gh output."
       echo "      Raw output: $add_result" >&2
       json_error "Project item ID is missing or null in gh output." "add" "$URL"
       exit 1
@@ -175,7 +182,7 @@ if [ -n "$URL" ]; then
       ADDED_ITEM_ID="$_existing_id"
       _json_item_id="$_existing_id"
     elif [ -z "$STATUS" ]; then
-      log "  ❌ Failed to add item to project and could not find an existing item for URL '$URL'."
+      log_err "  ❌ Failed to add item to project and could not find an existing item for URL '$URL'."
       echo "      Verify the URL is correct, confirm gh auth and project permissions, then retry." >&2
       json_error "Failed to add item to project and could not find existing item for URL." "add" "$URL"
       exit 1
@@ -240,14 +247,14 @@ if [ -n "$STATUS" ]; then
     if output=$(gh api graphql -f query="$mutation" 2>"$_gql_err"); then
       # GraphQL can return 200 with errors in the body
       if printf '%s' "$output" | jq -e '.errors' &>/dev/null; then
-        log "  ❌ GraphQL mutation returned errors"
+        log_err "  ❌ GraphQL mutation returned errors"
         printf '%s' "$output" | jq -r '.errors[].message' >&2
         json_error "GraphQL mutation returned errors." "$_json_action" "$_json_url" "$_json_item_id"
         exit 1
       fi
       log "  ✅ Status updated to $STATUS"
     else
-      log "  ❌ Failed to update status"
+      log_err "  ❌ Failed to update status"
       echo "  $(<"$_gql_err")" >&2
       json_error "Failed to update status." "$_json_action" "$_json_url" "$_json_item_id"
       exit 1

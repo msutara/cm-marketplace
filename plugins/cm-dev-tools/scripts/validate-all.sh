@@ -39,7 +39,13 @@ logf() {
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=lib/load-project.sh
-source "$SCRIPT_DIR/lib/load-project.sh" || exit 1
+if ! source "$SCRIPT_DIR/lib/load-project.sh"; then
+  echo "Error: failed to load project manifest." >&2
+  if $JSON_OUTPUT; then
+    printf '{"ok":false,"tool":"validate-all","data":null,"error":"failed to load project manifest."}\n'
+  fi
+  exit 1
+fi
 ALL_PASSED=0
 SUMMARIES=()
 
