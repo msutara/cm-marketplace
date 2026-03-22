@@ -187,7 +187,10 @@ Ask the user whether to create GitHub issues for each gap. If approved, run:
 
 ```bash
 # Use the web repo name discovered from the manifest query in Step 1
-gh issue create --repo {OWNER}/{web_repo_name} --title "Parity: Add {feature}" --body "{details}"
+_issue_body="$(mktemp)"
+echo "{details}" > "$_issue_body"
+gh issue create --repo {OWNER}/{web_repo_name} --title "Parity: Add {feature}" --body-file "$_issue_body"
+rm -f "$_issue_body"
 ```
 
 (Replace `{web_repo_name}` with the actual repo name from the manifest `repos[]` query above)

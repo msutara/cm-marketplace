@@ -227,8 +227,10 @@ If a comment cannot be addressed in this PR cycle:
    Then add a PR comment noting the deferral:
 
    ```bash
-   gh pr comment {PR_NUMBER} --repo {OWNER}/{repo} \
-     --body "Deferred to #{ISSUE_NUMBER} — tracked on the project board."
+   _comment="$(mktemp)"
+   echo "Deferred to #${ISSUE_NUMBER} — tracked on the project board." > "$_comment"
+   gh pr comment {PR_NUMBER} --repo {OWNER}/{repo} --body-file "$_comment"
+   rm -f "$_comment"
    ```
 
 ## Safety Rules
