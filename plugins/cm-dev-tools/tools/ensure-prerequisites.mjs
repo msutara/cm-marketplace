@@ -39,6 +39,11 @@ const windowsFallbacks = {
     "C:\\Program Files\\Git\\usr\\bin\\bash.exe",
     "C:\\Program Files (x86)\\Git\\bin\\bash.exe",
   ],
+  git: [
+    "C:\\Program Files\\Git\\cmd\\git.exe",
+    "C:\\Program Files\\Git\\bin\\git.exe",
+    "C:\\Program Files (x86)\\Git\\cmd\\git.exe",
+  ],
   jq: [
     "C:\\ProgramData\\chocolatey\\bin\\jq.exe",
     ...(userHome ? [`${userHome}\\scoop\\shims\\jq.exe`] : []),
@@ -203,7 +208,7 @@ const prerequisites = [
     installCmd: {
       win: "winget install --id Git.Git -e --accept-source-agreements --accept-package-agreements",
       mac: "brew install git",
-      linux: "sudo apt-get install -y git || sudo yum install -y git",
+      linux: "sudo apt-get install -y git || sudo dnf install -y git || sudo yum install -y git",
     },
   },
   {
@@ -222,7 +227,7 @@ const prerequisites = [
     installCmd: {
       win: "winget install --id jqlang.jq -e --accept-source-agreements --accept-package-agreements",
       mac: "brew install jq",
-      linux: "sudo apt-get install -y jq || sudo yum install -y jq",
+      linux: "sudo apt-get install -y jq || sudo dnf install -y jq || sudo yum install -y jq",
     },
   },
   {
@@ -234,7 +239,7 @@ const prerequisites = [
     installCmd: {
       win: "winget install --id GitHub.cli -e --accept-source-agreements --accept-package-agreements",
       mac: "brew install gh",
-      linux: "sudo apt-get install -y gh || sudo dnf install -y gh",
+      linux: "sudo apt-get install -y gh || sudo dnf install -y gh || sudo yum install -y gh",
     },
   },
   {
@@ -246,7 +251,8 @@ const prerequisites = [
     installCmd: {
       win: "scoop install shellcheck",
       mac: "brew install shellcheck",
-      linux: "sudo apt-get install -y shellcheck",
+      linux:
+        "sudo apt-get install -y shellcheck || sudo dnf install -y shellcheck || sudo yum install -y shellcheck",
     },
   },
 ];
