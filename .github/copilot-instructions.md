@@ -17,7 +17,7 @@ The marketplace currently supports plugins with skills, agents, and bash helper 
 
 ## Before Committing
 
-1. **Lint all** — `npm run lint:all` (markdownlint, must pass)
+1. **Lint all** — `npm run lint:all` (markdownlint + Biome JS, must pass)
 2. **Fix automatically** — `npm run lint:fix` for auto-fixable issues
 3. **Verify JSON** — ensure all `.json` files are valid (marketplace.json, plugin.json)
 4. **Cross-check names** — plugin name in `plugin.json` must match the entry in `marketplace.json`
@@ -28,8 +28,10 @@ The marketplace currently supports plugins with skills, agents, and bash helper 
 | Script | What it checks |
 | --- | --- |
 | `npm run lint` | Markdown files (markdownlint) |
+| `npm run lint:js` | JavaScript/TypeScript files (Biome) |
 | `npm run lint:fix` | Auto-fix markdown issues |
-| `npm run lint:all` | Same as `lint` (extensible for future linters) |
+| `npm run lint:js:fix` | Auto-fix JS/TS issues (Biome) |
+| `npm run lint:all` | Runs both `lint` + `lint:js` |
 
 ## Markdown Standards
 

@@ -36,6 +36,12 @@ GitHub Copilot CLI and Claude Code.
 | **CMDeveloper** | Full-stack CM development with embedded project knowledge |
 | **CMReviewer** | Code review specialist with fleet config and false positive suppression |
 
+### Tools (1)
+
+| Tool | Purpose |
+| --- | --- |
+| `ensure-prerequisites.mjs` | Preflight check — verifies all required CLIs are installed and meet minimum versions |
+
 ## Install
 
 ```bash
@@ -48,10 +54,21 @@ claude plugin marketplace add msutara/cm-marketplace
 claude plugin install cm-dev-tools@cm-marketplace
 ```
 
-## Prerequisites (for target CM repos)
+## Prerequisites
+
+### For this plugin's scripts and skills
+
+- **Node.js 20+** — required for repo tooling (npm lint scripts) and the `ensure-prerequisites.mjs` checker
+- **bash 4+** — required for all manifest-driven scripts (associative arrays)
+- **jq** — JSON processing (required by all manifest-driven scripts)
+- **gh CLI** — PR and project board operations
+- **git** — required by all scripts
+- **shellcheck** — for CI shell linting
+
+From the repository root, run `node plugins/cm-dev-tools/tools/ensure-prerequisites.mjs` to check all at once.
+Add `--install` to auto-install missing tools.
+
+### For target CM repos (used by skills at runtime)
 
 - **Go 1.24+** — build/test/lint
 - **golangci-lint v2** — Go linting
-- **gh CLI** — PR and project board operations
-- **jq** — JSON processing (required by all manifest-driven scripts)
-- **bash 4+** — required for all manifest-driven scripts (associative arrays)

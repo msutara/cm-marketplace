@@ -118,7 +118,7 @@ cm-marketplace/
 │   │   └── feature_request.md        # Feature request template
 │   ├── pull_request_template.md      # PR checklist
 │   └── workflows/
-│       └── ci.yml                    # CI: markdownlint + shellcheck
+│       └── ci.yml                    # CI: markdownlint + shellcheck + biome
 ├── plugins/
 │   └── cm-dev-tools/                 # Plugin: CM development toolkit
 │       ├── .claude-plugin/
@@ -143,23 +143,25 @@ cm-marketplace/
 │       │   │   └── SKILL.md
 │       │   └── cm-docs-sync/
 │       │       └── SKILL.md
-│       └── scripts/
-│           ├── lib/
-│           │   └── load-project.sh     # Shared: reads project.json manifest
-│           ├── init-project.sh         # Generate project.json interactively
-│           ├── validate-repo.sh        # Build + test + lint one repo
-│           ├── validate-all.sh         # Validate all repos from manifest
-│           ├── repo-status.sh          # Git status across repos
-│           ├── tag-all.sh              # Tag repos in dependency order
-│           ├── sync-deps.sh            # Bump go.mod dependencies
-│           └── project-board.sh        # GitHub project board automation
+│       ├── scripts/
+│       │   ├── lib/
+│       │   │   └── load-project.sh     # Shared: reads project.json manifest
+│       │   ├── init-project.sh         # Generate project.json interactively
+│       │   ├── validate-repo.sh        # Build + test + lint one repo
+│       │   ├── validate-all.sh         # Validate all repos from manifest
+│       │   ├── repo-status.sh          # Git status across repos
+│       │   ├── tag-all.sh              # Tag repos in dependency order
+│       │   ├── sync-deps.sh            # Bump go.mod dependencies
+│       │   └── project-board.sh        # GitHub project board automation
+│       └── tools/
+│           └── ensure-prerequisites.mjs # Preflight CLI tool checker
 ├── docs/
 │   └── project.example.json           # Template for project manifest
 ├── LICENSE                           # GPL-3.0
 ├── README.md                         # This file
 ├── RELEASES.md                       # Version history
 ├── CONTRIBUTING.md                   # How to add plugins/skills
-├── package.json                      # Lint tooling (markdownlint-cli2)
+├── package.json                      # Lint tooling (markdownlint + Biome)
 ├── package-lock.json                 # Locked dependency versions
 ├── .editorconfig                     # Editor formatting rules
 ├── .gitattributes                    # LF enforcement for *.sh
@@ -169,8 +171,8 @@ cm-marketplace/
 
 ## Before Committing
 
-1. **Lint** — `npm run lint` (markdownlint must pass)
-2. **Fix** — `npm run lint:fix` for auto-fixable issues
+1. **Lint** — `npm run lint:all` (markdownlint + Biome JS must pass)
+2. **Fix** — `npm run lint:fix` / `npm run lint:js:fix` for auto-fixable issues
 3. **Verify JSON** — marketplace.json and plugin.json must be valid
 
 ## Updating the Plugin
@@ -203,11 +205,16 @@ copilot plugin install cm-dev-tools@cm-marketplace
 
 ### For this marketplace repo
 
-- **GitHub Copilot CLI** or **Claude Code** — either platform works
-- **Node.js 20+** — for markdownlint-cli2 linting
+- **GitHub Copilot CLI** or **Claude Code** — either AI platform works (not checked by the prereq tool)
+- **git 2.30+** — for version control and PR workflows
+- **Node.js 20+** — for markdownlint-cli2 and Biome linting
 - **bash 4+** — for helper scripts (native on Linux, `brew install bash` on macOS, Git Bash on Windows)
 - **gh CLI** — for PR and project board scripts
 - **jq** — for reading project manifest and JSON processing
+- **shellcheck** — for CI shell linting (on Windows, install via [Scoop](https://scoop.sh))
+
+Run `node plugins/cm-dev-tools/tools/ensure-prerequisites.mjs` to verify the developer tools above.
+Add `--install` to auto-install missing tools.
 
 ### For target CM repos (used by skills at runtime)
 

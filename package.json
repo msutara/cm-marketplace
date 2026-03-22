@@ -9,9 +9,12 @@
   "scripts": {
     "lint": "markdownlint-cli2 \"**/*.md\" \"#**/node_modules\"",
     "lint:fix": "markdownlint-cli2 --fix \"**/*.md\" \"#**/node_modules\"",
-    "lint:all": "npm run lint"
+    "lint:js": "biome check plugins/",
+    "lint:js:fix": "biome check --write plugins/",
+    "lint:all": "npm run lint && npm run lint:js"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.4.8",
     "markdownlint-cli2": "0.21.0"
   }
 }
