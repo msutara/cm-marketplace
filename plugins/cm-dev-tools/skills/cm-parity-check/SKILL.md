@@ -3,8 +3,8 @@ name: cm-parity-check
 description: >
   Verify functional, security, test, and documentation parity between
   the UI repos in .cm/project.json (repos whose role contains "TUI" or
-  "web UI" — see docs/project.example.json for the canonical role values).
-  Reports gaps without making changes.
+  "web UI" per the example manifest — roles are user-defined free-form
+  strings matched by substring). Reports gaps without making changes.
   USE FOR: parity check, check parity, tui web sync, compare tui web,
   parity audit, ui parity, check ui parity, verify parity, parity report.
 ---
@@ -16,7 +16,7 @@ description: >
 The Config Manager project enforces a **permanent parity rule**:
 
 > The UI repos in `.cm/project.json` (those whose `.role` contains "TUI" or
-> "web UI" — the canonical role values from the manifest schema) MUST be kept
+> "web UI" — roles are user-defined strings matched by substring) MUST be kept
 > functionally and test-wise identical.
 >
 > 1. Every feature implemented in one UI must exist in the other.

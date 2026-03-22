@@ -111,7 +111,7 @@ See [`docs/project.example.json`](docs/project.example.json) for the full schema
 
 ## Repos Managed
 
-Defined in `$CM_REPO_BASE/.cm/project.json` (see [`docs/project.example.json`](docs/project.example.json) for schema).
+Defined in `$CM_REPO_BASE/.cm/project.json` — current repos:
 
 | Repo | Role |
 | --- | --- |

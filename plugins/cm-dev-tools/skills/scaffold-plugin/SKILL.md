@@ -130,12 +130,11 @@ require github.com/{OWNER}/config-manager-core v0.0.0
 ```
 
 Before running `go mod tidy`, replace the placeholder `v0.0.0` with the latest
-tag from the reference repo (`.reference_repo` in `.cm/project.json`):
+tag from `config-manager-core` (the core dependency all plugins import):
 
 ```bash
-_ref=$(jq -r '.reference_repo' "$CM_REPO_BASE/.cm/project.json")
-_ver=$(git -C "$CM_REPO_BASE/$_ref" describe --tags --abbrev=0)
-sed -i "s|config-manager-core v0.0.0|config-manager-core $_ver|" go.mod
+_ver=$(git -C "$CM_REPO_BASE/config-manager-core" describe --tags --abbrev=0)
+sed -i.bak "s|config-manager-core v0.0.0|config-manager-core $_ver|" go.mod && rm -f go.mod.bak
 ```
 
 After writing the file, run:
