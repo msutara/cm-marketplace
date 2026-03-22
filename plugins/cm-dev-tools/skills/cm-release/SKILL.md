@@ -743,6 +743,7 @@ packages compiled into the core binary.
 ### Verification steps
 
 ```bash
+_release_failed=false
 for n in "${included_repos[@]}"; do
     run=$(gh run list \
         --repo "$owner/$n" \
@@ -750,9 +751,15 @@ for n in "${included_repos[@]}"; do
         --limit 1 \
         --json status,conclusion,databaseId)
 
+    dbId=$(echo "$run" | jq -r '.[0].databaseId // empty')
+    if [ -z "$dbId" ]; then
+        echo "❌ ${n}: no release workflow run found — tag may not have triggered it" >&2
+        _release_failed=true
+        continue
+    fi
+
     status=$(echo "$run" | jq -r '.[0].status')
     conclusion=$(echo "$run" | jq -r '.[0].conclusion')
-    dbId=$(echo "$run" | jq -r '.[0].databaseId')
 
     if [[ "$status" == "in_progress" || "$status" == "queued" ]]; then
         gh run watch "$dbId" --repo "$owner/$n"
@@ -762,6 +769,7 @@ for n in "${included_repos[@]}"; do
     if [[ "$conclusion" != "success" ]]; then
         echo "❌ ${n}: release workflow failed" >&2
         echo "   View: https://github.com/$owner/$n/actions/runs/$dbId"
+        _release_failed=true
     else
         echo "✅ ${n}: release workflow passed"
     fi
@@ -779,10 +787,14 @@ for n in "${included_repos[@]}"; do
         fi
     fi
 done
+
+if [ "$_release_failed" = true ]; then
+    echo "❌ One or more release workflows failed. STOP — do not proceed." >&2
+    exit 1
+fi
 ```
 
-If any workflow fails, report the failure and provide the run URL for
-investigation. Do **not** mark the release as complete.
+Do **not** mark the release as complete until all workflows pass.
 
 ## Phase 10 — Post-Release
 

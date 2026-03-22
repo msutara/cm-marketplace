@@ -1471,7 +1471,7 @@ gh api -X PUT "repos/{OWNER}/cm-plugin-{name}/branches/main/protection" \
 {
   "required_status_checks": {
     "strict": true,
-    "contexts": ["lint", "test", "markdownlint"]
+    "contexts": ["CI / lint", "CI / test", "CI / markdownlint"]
   },
   "enforce_admins": false,
   "required_pull_request_reviews": {
