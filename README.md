@@ -143,16 +143,18 @@ cm-marketplace/
 │       │   │   └── SKILL.md
 │       │   └── cm-docs-sync/
 │       │       └── SKILL.md
-│       └── scripts/
-│           ├── lib/
-│           │   └── load-project.sh     # Shared: reads project.json manifest
-│           ├── init-project.sh         # Generate project.json interactively
-│           ├── validate-repo.sh        # Build + test + lint one repo
-│           ├── validate-all.sh         # Validate all repos from manifest
-│           ├── repo-status.sh          # Git status across repos
-│           ├── tag-all.sh              # Tag repos in dependency order
-│           ├── sync-deps.sh            # Bump go.mod dependencies
-│           └── project-board.sh        # GitHub project board automation
+│       ├── scripts/
+│       │   ├── lib/
+│       │   │   └── load-project.sh     # Shared: reads project.json manifest
+│       │   ├── init-project.sh         # Generate project.json interactively
+│       │   ├── validate-repo.sh        # Build + test + lint one repo
+│       │   ├── validate-all.sh         # Validate all repos from manifest
+│       │   ├── repo-status.sh          # Git status across repos
+│       │   ├── tag-all.sh              # Tag repos in dependency order
+│       │   ├── sync-deps.sh            # Bump go.mod dependencies
+│       │   └── project-board.sh        # GitHub project board automation
+│       └── tools/
+│           └── ensure-prerequisites.mjs # Preflight CLI tool checker
 ├── docs/
 │   └── project.example.json           # Template for project manifest
 ├── LICENSE                           # GPL-3.0

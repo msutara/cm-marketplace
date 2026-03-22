@@ -3,9 +3,11 @@
 /**
  * ensure-prerequisites.mjs — preflight check and installer for cm-marketplace.
  *
- * Verifies that every CLI tool required by the marketplace scripts and skills
- * is installed and meets the minimum version. Outputs a coloured summary to
- * stderr. Requires Node.js to already be installed (it is the runtime).
+ * Verifies that every CLI tool required by the cm-marketplace repo tooling
+ * (development scripts and helper bash utilities) is installed and meets the
+ * minimum version. Outputs a coloured summary to stderr. Requires Node.js to
+ * already be installed (it is the runtime). It does not validate toolchains
+ * required by target repositories or individual skills (e.g. Go, golangci-lint).
  *
  * Exit codes:
  *   0 — all prerequisites satisfied (possibly after auto-install)
@@ -78,7 +80,7 @@ const log = (msg) => process.stderr.write(`${msg}\n`);
 /**
  * Parse a major.minor version from an arbitrary version string.
  * Handles formats like "jq-1.7.1", "bash 5.2.26(1)-release",
- * "go version go1.24.1 ...", "gh version 2.67.0", etc.
+ * "gh version 2.67.0", etc.
  *
  * @param {string} raw - Raw output from `tool --version`
  * @returns {{ major: number, minor: number } | null}
@@ -206,11 +208,10 @@ const prerequisites = [
   },
   {
     name: "node",
-    cmd: "node",
+    cmd: process.execPath,
     args: ["--version"],
     minVersion: { major: 20, minor: 0 },
     installHint: "https://nodejs.org/",
-    // node is running this script, so if we got here it's installed
   },
   {
     name: "jq",
