@@ -220,7 +220,7 @@ changes should be tagged. Compare commits since each repo's last tag:
 
 ```bash
 for n in "${repos[@]}"; do
-    pushd "$base/$n" > /dev/null
+    pushd "$base/$n" > /dev/null || { echo "❌ ${n}: directory not found at $base/$n" >&2; exit 1; }
     lastTag=$(git describe --tags --abbrev=0 2>/dev/null || echo "none")
     if [[ "$lastTag" == "none" ]]; then
         changes="(first release)"

@@ -91,16 +91,16 @@ Compare security implementations across both codebases. **Discover** the
 actual function names and locations dynamically — do NOT rely on hardcoded
 references (functions get renamed/moved between releases).
 
-For each pattern below, `grep -rn` both repos to locate the implementation,
+For each pattern below, `grep -rnE` both repos to locate the implementation,
 then diff the logic:
 
 | Pattern | How to Find | What to Check |
 | --- | --- | --- |
-| Input sanitization (C0 + C1 control chars) | `grep -rn --include='*.go' 'sanitize\|Sanitize' .` | Implementation logic matches across repos |
-| Body size limits | `grep -rn --include='*.go' 'LimitReader\|MaxBytesReader' .` | Limit values are identical |
-| Token masking in logs | `grep -rn --include='*.go' 'mask\|Mask\|token.*log\|Token.*Log' .` | Masking pattern is identical |
-| Path traversal prevention | `grep -rn --include='*.go' 'cleanPlugin\|filepath.Clean\|path.Clean' .` | Implementation logic matches |
-| Error message sanitization | `grep -rn --include='*.go' 'sanitize.*[Bb]ody\|sanitize.*[Ee]rror' .` | Coverage is identical |
+| Input sanitization (C0 + C1 control chars) | `grep -rnE --include='*.go' 'sanitize|Sanitize' .` | Implementation logic matches across repos |
+| Body size limits | `grep -rnE --include='*.go' 'LimitReader|MaxBytesReader' .` | Limit values are identical |
+| Token masking in logs | `grep -rnE --include='*.go' 'mask|Mask|token.*log|Token.*Log' .` | Masking pattern is identical |
+| Path traversal prevention | `grep -rnE --include='*.go' 'cleanPlugin|filepath.Clean|path.Clean' .` | Implementation logic matches |
+| Error message sanitization | `grep -rnE --include='*.go' 'sanitize.*[Bb]ody|sanitize.*[Ee]rror' .` | Coverage is identical |
 
 For each pattern, read the actual implementation in both repos and diff the
 logic. Flag any divergence.
