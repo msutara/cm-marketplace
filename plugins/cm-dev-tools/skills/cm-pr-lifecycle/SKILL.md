@@ -79,8 +79,9 @@ For CI-realistic validation, disable workspace mode so `go.mod` is used
 directly (matches what CI sees):
 
 ```bash
-GOWORK=off go build ./...
-GOWORK=off go test ./...
+export GOWORK=off
+go build ./...
+go test ./...
 golangci-lint run
 ```
 
@@ -176,20 +177,10 @@ gh auth status
 Create the pull request via `gh` CLI. Use `--body-file` instead of inline
 `--body` to avoid escaping issues on Windows/PowerShell:
 
+Write the PR body to a temp file, then create the PR:
+
 ```bash
-gh pr create --title "{title}" --body-file /tmp/pr-body.md --base main --head {branch-name}
-```
-
-The PR body must include:
-
-- **Summary** — what changed and why
-- **Issue reference** — `Closes #XX` (if applicable)
-- **Test coverage** — confirmation that tests pass and cover the changes
-- **Fleet review status** — confirmation that fleet review passed clean
-
-Example body template:
-
-```markdown
+cat > /tmp/pr-body.md << 'PRBODY'
 ## Summary
 
 {Description of changes}
@@ -208,6 +199,11 @@ Closes #{issue_number}
 ## Test Coverage
 
 {Note on test coverage for new/changed code}
+PRBODY
+```
+
+```bash
+gh pr create --title "{title}" --body-file /tmp/pr-body.md --base main --head {branch-name}
 ```
 
 ### Phase 8 — Project Board

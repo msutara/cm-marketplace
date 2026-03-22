@@ -104,10 +104,11 @@ gh auth status
 ```
 
 In multi-account setups (e.g., EMU work account + personal account), ensure the
-personal account (`msutara` or whichever owns the CM repos) is active. If not:
+GitHub account that owns the CM repositories (i.e., matches the manifest's
+`.owner` field) is active. If not:
 
 ```bash
-gh auth switch --user msutara
+gh auth switch --user "$(jq -r '.owner' "$_cm")"
 ```
 
 Do **not** proceed until `gh auth status` shows the correct account.
@@ -125,9 +126,9 @@ a matrix and report the first failure.
 | --- | --- | --- | --- |
 | 1 | Clean tree | `git status --porcelain` | Empty output |
 | 2 | On `main` | `git branch --show-current` | Returns main |
-| 3 | Go build | `go build ./...` | Exit code 0 |
-| 4 | Go test | `go test ./...` | Exit code 0 |
-| 5 | Go lint | `golangci-lint run` | Exit code 0 |
+| 3 | Go build | `GOWORK=off go build ./...` | Exit code 0 |
+| 4 | Go test | `GOWORK=off go test ./...` | Exit code 0 |
+| 5 | Go lint | `GOWORK=off golangci-lint run` | Exit code 0 |
 | 6 | MD lint | `markdownlint-cli2` | Exit code 0 |
 
 ```bash
@@ -138,7 +139,13 @@ _cm="${CM_REPO_BASE:+$CM_REPO_BASE/.cm/project.json}"
 [ -f "$_cm" ] || _cm="$HOME/repo/.cm/project.json"   # fallback
 if [ -f "$_cm" ]; then
   base="$(cd "$(dirname "$_cm")/.." && pwd)"
-  repos=($(jq -r '.dep_order[]' "$_cm"))
+  repos=($(jq -r 'if (has("dep_order") and (.dep_order | length > 0)) then .dep_order[] else .repos[].name end' "$_cm"))
+  owner="$(jq -r '.owner // empty' "$_cm")"
+  referenceRepo="$(jq -r '.reference_repo // empty' "$_cm")"
+  if [ -z "$owner" ] || [ -z "$referenceRepo" ]; then
+    echo "Manifest $_cm is missing required fields: owner and/or reference_repo." >&2
+    exit 1
+  fi
 else
   echo "No manifest found — ask the user for repo list and base directory." >&2
   echo "Cannot proceed without manifest or explicit repo list." >&2
@@ -160,17 +167,17 @@ for n in "${repos[@]}"; do
         popd > /dev/null; exit 1
     fi
 
-    if ! go build ./...; then
+    if ! GOWORK=off go build ./...; then
         echo "❌ ${n}: go build failed" >&2
         popd > /dev/null; exit 1
     fi
 
-    if ! go test ./...; then
+    if ! GOWORK=off go test ./...; then
         echo "❌ ${n}: go test failed" >&2
         popd > /dev/null; exit 1
     fi
 
-    if ! golangci-lint run; then
+    if ! GOWORK=off golangci-lint run; then
         echo "❌ ${n}: lint failed" >&2
         popd > /dev/null; exit 1
     fi
@@ -311,8 +318,10 @@ for n in "${leaf_repos[@]}"; do
     prevTag=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
     if [ -n "$prevTag" ]; then
         changelog=$(git log "$prevTag..HEAD" --oneline --no-merges)
+        compareLink="Full changelog: https://github.com/$owner/$n/compare/${prevTag}...$version"
     else
         changelog=$(git log --oneline --no-merges)
+        compareLink="Initial release"
     fi
 
     annotation="Release $version — $(echo "$changelog" | head -1)
@@ -320,7 +329,7 @@ for n in "${leaf_repos[@]}"; do
 Changes:
 $changelog
 
-Full changelog: https://github.com/$owner/$n/compare/${prevTag:-initial}...$version"
+$compareLink"
 
     git tag -a "$version" -m "$annotation" || { echo "❌ ${n}: git tag failed" >&2; exit 1; }
     git push origin "$version" || { echo "❌ ${n}: git push tag failed" >&2; exit 1; }
@@ -376,7 +385,7 @@ for n in "${core_repos[@]}"; do
         GOWORK=off go get "$module@$version"
     done
 
-    go mod tidy
+    GOWORK=off go mod tidy
 
     # Verify build + test WITHOUT go.work (simulates CI)
     GOWORK=off go build ./...
@@ -389,7 +398,7 @@ for n in "${core_repos[@]}"; do
 
     gh pr create \
         --title "release: bump deps to $version" \
-        --body "Automated go.mod bump for release $version." \
+        --body-file <(echo "Automated go.mod bump for release $version.") \
         --base main
 
     echo "⏳ Waiting for CI on $n..."
@@ -419,8 +428,10 @@ for n in "${core_repos[@]}"; do
     prevTag=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
     if [ -n "$prevTag" ]; then
         changelog=$(git log "$prevTag..HEAD" --oneline --no-merges)
+        compareLink="Full changelog: https://github.com/$owner/$n/compare/${prevTag}...$version"
     else
         changelog=$(git log --oneline --no-merges)
+        compareLink="Initial release"
     fi
 
     annotation="Release $version — $(echo "$changelog" | head -1)
@@ -428,7 +439,7 @@ for n in "${core_repos[@]}"; do
 Changes:
 $changelog
 
-Full changelog: https://github.com/$owner/$n/compare/${prevTag:-initial}...$version"
+$compareLink"
 
     git tag -a "$version" -m "$annotation" || { echo "❌ ${n}: git tag failed" >&2; exit 1; }
     git push origin "$version" || { echo "❌ ${n}: git push tag failed" >&2; exit 1; }
@@ -480,7 +491,7 @@ for n in "${ui_repos[@]}"; do
         GOWORK=off go get "$module@$version"
     done
 
-    go mod tidy
+    GOWORK=off go mod tidy
     GOWORK=off go build ./...
     GOWORK=off go test ./... -count=1
 
@@ -490,7 +501,7 @@ for n in "${ui_repos[@]}"; do
 
     gh pr create \
         --title "release: bump deps to $version" \
-        --body "Automated go.mod bump for release $version." \
+        --body-file <(echo "Automated go.mod bump for release $version.") \
         --base main
 
     echo "⏳ Waiting for CI on $n..."
@@ -515,8 +526,10 @@ for n in "${ui_repos[@]}"; do
     prevTag=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
     if [ -n "$prevTag" ]; then
         changelog=$(git log "$prevTag..HEAD" --oneline --no-merges)
+        compareLink="Full changelog: https://github.com/$owner/$n/compare/${prevTag}...$version"
     else
         changelog=$(git log --oneline --no-merges)
+        compareLink="Initial release"
     fi
 
     annotation="Release $version — $(echo "$changelog" | head -1)
@@ -524,7 +537,7 @@ for n in "${ui_repos[@]}"; do
 Changes:
 $changelog
 
-Full changelog: https://github.com/$owner/$n/compare/${prevTag:-initial}...$version"
+$compareLink"
 
     git tag -a "$version" -m "$annotation" || { echo "❌ ${n}: git tag failed" >&2; exit 1; }
     git push origin "$version" || { echo "❌ ${n}: git push tag failed" >&2; exit 1; }
@@ -543,7 +556,7 @@ reports the correct version:
 gh release download "$version" --repo "$owner/$referenceRepo" \
     --pattern "*amd64.deb" --dir /tmp
 # Or if built locally:
-go build -ldflags="-s -w $(cat ldflags.txt)" -o /tmp/cm ./cmd/cm
+GOWORK=off go build -ldflags="-s -w $(cat ldflags.txt)" -o /tmp/cm ./cmd/cm
 /tmp/cm --version | grep -q "${version#v}" && echo "✅ Version correct" || echo "❌ Version mismatch"
 ```
 
@@ -843,7 +856,7 @@ _cm="${CM_REPO_BASE:+$CM_REPO_BASE/.cm/project.json}"
 [ -f "$_cm" ] || _cm="../.cm/project.json"            # parent dir
 [ -f "$_cm" ] || _cm="$HOME/repo/.cm/project.json"   # fallback
 if [ -f "$_cm" ]; then
-  jq '.repos[].name, .dep_order[]' "$_cm"
+  jq '.repos[].name, (.dep_order // [])[]' "$_cm"
 else
   echo "No manifest found — verify repo list manually before proceeding."
 fi

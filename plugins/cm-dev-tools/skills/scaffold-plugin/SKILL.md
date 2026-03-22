@@ -37,7 +37,7 @@ fi
 Use `reference_repo` for the reference repository and `owner` for the GitHub owner.
 Use `project_board.id` for the project board ID.
 
-## Step 0 — Gather Input
+## Step 0 — Gather Input and Authentication
 
 If any of these values were **not** provided by the user, ask before proceeding.
 
@@ -58,6 +58,22 @@ Derive from these:
 - **Module path** — `github.com/{OWNER}/cm-plugin-{name}`
 - **Constructor** — `New{Name}Plugin()` (PascalCase)
 - **Struct** — `{Name}Plugin` (PascalCase)
+
+### Authentication check
+
+Verify the correct GitHub account (the one that owns the CM repos) is active:
+
+```bash
+gh auth status
+```
+
+If the wrong account is active, switch:
+
+```bash
+gh auth switch --user {OWNER}
+```
+
+Do **not** proceed until `gh auth status` shows the correct account.
 
 ## Step 1 — Create the GitHub Repository
 
@@ -132,7 +148,20 @@ Before running `go mod tidy`, replace the placeholder `v0.0.0` with the latest
 tag from `config-manager-core` (the core dependency all plugins import):
 
 ```bash
-_ver=$(git -C "$CM_REPO_BASE/config-manager-core" describe --tags --abbrev=0)
+# Resolve core repo path via CM_REPO_BASE or manifest discovery
+if [ -n "${CM_REPO_BASE:-}" ]; then
+  _core="$CM_REPO_BASE/config-manager-core"
+else
+  _cm="${PWD}/../.cm/project.json"
+  [ -f "$_cm" ] || _cm="$HOME/repo/.cm/project.json"
+  if [ -f "$_cm" ]; then
+    _core="$(cd "$(dirname "$_cm")/.." && pwd)/config-manager-core"
+  else
+    echo "Cannot find core repo — set CM_REPO_BASE or ensure .cm/project.json exists." >&2
+    exit 1
+  fi
+fi
+_ver=$(git -C "$_core" describe --tags --abbrev=0)
 sed -i.bak "s|config-manager-core v0.0.0|config-manager-core $_ver|" go.mod && rm -f go.mod.bak
 ```
 
@@ -1206,10 +1235,10 @@ The plugin exposes configuration via `GET /config`:
 
 ```bash
 cd cm-plugin-{name} || { echo "Failed to cd into cm-plugin-{name}"; exit 1; }
-go mod tidy
-go build ./...
-go test ./...
-golangci-lint run
+GOWORK=off go mod tidy
+GOWORK=off go build ./...
+GOWORK=off go test ./...
+GOWORK=off golangci-lint run
 ```
 
 All four commands must pass. Fix any issues before continuing.
@@ -1230,7 +1259,8 @@ Edit `config-manager-core/cmd/cm/main.go` (sibling repo under the manifest's par
    plugin.Register({pkg}.New{Name}Plugin())
    ```
 
-3. Run `go mod tidy` in `config-manager-core` to pull the new dependency:
+3. Wire the dependency using a local `replace` directive (the plugin code is not
+   on GitHub yet — it's on a local branch, not merged to `main`):
 
    ```bash
    # Discover project manifest: $CM_REPO_BASE → cwd → parent → $HOME/repo (optional — ask user for context if unavailable)
@@ -1246,14 +1276,18 @@ Edit `config-manager-core/cmd/cm/main.go` (sibling repo under the manifest's par
      echo "No manifest found — cd to the reference repo manually before continuing." >&2
      exit 1
    fi
-   go get github.com/{OWNER}/cm-plugin-{name}@v0.1.0
+   go mod edit -require "github.com/{OWNER}/cm-plugin-{name}@v0.0.0"
+   go mod edit -replace "github.com/{OWNER}/cm-plugin-{name}=${_base}/cm-plugin-{name}"
    go mod tidy
    go build ./...
    go test ./...
    ```
 
-> **Do not push changes to config-manager-core yet.** The core wiring will be
-> part of a separate PR after the plugin's initial PR is merged and tagged.
+   > The `replace` directive lets core build against the local checkout — `GOWORK=off`
+   > is not needed here since the explicit `replace` already overrides module resolution.
+   > After the plugin's initial PR is merged and tagged, remove the `replace` and run
+   > `go get github.com/{OWNER}/cm-plugin-{name}@v0.1.0` to switch to the real
+   > module version.
 
 ## Step 5.5 — Update Core Build Flags
 
@@ -1282,6 +1316,16 @@ builds even though the `var version` variable exists.
 Add the new plugin to the workspace file for local cross-repo development:
 
 ```bash
+# Resolve workspace root via manifest discovery
+_cm="${CM_REPO_BASE:+$CM_REPO_BASE/.cm/project.json}"
+[ -f "${_cm:-}" ] || _cm="../.cm/project.json"
+[ -f "$_cm" ] || _cm="$HOME/repo/.cm/project.json"
+if [ -f "$_cm" ]; then
+  _base="$(cd "$(dirname "$_cm")/.." && pwd)"
+else
+  echo "No manifest found — cd to workspace root manually." >&2
+  exit 1
+fi
 cd "$_base" && go work use "cm-plugin-{name}"
 ```
 
@@ -1320,7 +1364,34 @@ Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
 git push -u origin phase1/skeleton-and-specs
 ```
 
-Create the PR:
+Create the PR. Write the body to a temp file first to avoid escaping issues
+on Windows/PowerShell:
+
+```bash
+cat > /tmp/scaffold-pr-body.md << 'PRBODY'
+## Summary
+
+Initial plugin scaffold for **cm-plugin-{name}** — {description}.
+
+### What's included
+
+- `plugin.go` — `{Name}Plugin` implementing `plugin.Plugin` and `plugin.Configurable` (if needs_config)
+- `service.go` — business logic layer
+- `routes.go` — Chi router with endpoint handlers
+- Unit tests (`plugin_test.go`, `service_test.go`, `routes_test.go`)
+- CI workflow (golangci-lint v2 + go test + markdownlint)
+- Release workflow (GitHub release on `v*.*.*` tag)
+- `specs/SPEC.md` and `specs/ARCHITECTURE.md`
+- `docs/USAGE.md`
+- Repository boilerplate (.gitignore, dependabot, issue templates, etc.)
+
+### Next steps
+
+1. Merge this skeleton
+2. Wire into `config-manager-core/cmd/cm/main.go`
+3. Implement domain logic in `service.go`
+PRBODY
+```
 
 ```bash
 gh pr create \
@@ -1328,27 +1399,7 @@ gh pr create \
   --base main \
   --head phase1/skeleton-and-specs \
   --title "feat: scaffold {name} plugin skeleton and specs" \
-  --body "## Summary
-
-Initial plugin scaffold for **cm-plugin-{name}** — {description}.
-
-### What's included
-
-- \`plugin.go\` — \`{Name}Plugin\` implementing \`plugin.Plugin\` and \`plugin.Configurable\` (if needs_config)
-- \`service.go\` — business logic layer
-- \`routes.go\` — Chi router with endpoint handlers
-- Unit tests (\`plugin_test.go\`, \`service_test.go\`, \`routes_test.go\`)
-- CI workflow (golangci-lint v2 + go test + markdownlint)
-- Release workflow (GitHub release on \`v*.*.*\` tag)
-- \`specs/SPEC.md\` and \`specs/ARCHITECTURE.md\`
-- \`docs/USAGE.md\`
-- Repository boilerplate (.gitignore, dependabot, issue templates, etc.)
-
-### Next steps
-
-1. Merge this skeleton
-2. Wire into \`config-manager-core/cmd/cm/main.go\`
-3. Implement domain logic in \`service.go\`"
+  --body-file /tmp/scaffold-pr-body.md
 ```
 
 ## Step 8 — Verification Checklist
@@ -1357,9 +1408,9 @@ Before reporting completion, verify all of the following:
 
 - [ ] GitHub repo `{OWNER}/cm-plugin-{name}` exists and is public
 - [ ] All files from the tree in Step 2 are present
-- [ ] `go build ./...` succeeds
-- [ ] `go test ./...` passes
-- [ ] `golangci-lint run` is clean
+- [ ] `GOWORK=off go build ./...` succeeds
+- [ ] `GOWORK=off go test ./...` passes
+- [ ] `GOWORK=off golangci-lint run` is clean
 - [ ] CI workflow file matches the exact pattern (checkout@v6, setup-go@v6, golangci-lint-action@v9 v2.1.6, markdownlint-cli2-action@v22)
 - [ ] Release workflow uses `softprops/action-gh-release@v2` (no binary build, no nfpm)
 - [ ] PR exists on branch `phase1/skeleton-and-specs`
@@ -1387,8 +1438,11 @@ if [ -f "$_cm" ]; then
         | if .dep_order then
             # Insert after plugins but before UI repos (tui/web).
             # Find the index of the first UI repo and splice there.
-            (.dep_order | to_entries
-              | map(select(.value | test("tui|web"))) | .[0].key // length) as $idx
+            (.dep_order
+              | ((to_entries
+                  | map(select(.value | test("tui|web|ui")))
+                  | .[0].key) // length)
+            ) as $idx
             | .dep_order = (.dep_order[:$idx] + ["cm-plugin-{name}"] + .dep_order[$idx:])
           else . end' "$_cm" \
       > "$(dirname "$_cm")/project.tmp.$$.json" \
