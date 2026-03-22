@@ -14,7 +14,7 @@
 
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -94,10 +94,11 @@ const SAFE_NAME = /^[a-zA-Z0-9_.-]+$/;
 const SAFE_SEMVER = /^v\d+\.\d+\.\d+$/;
 const SAFE_GO_VERSION = /^v?[a-zA-Z0-9._+-]+$/;
 const SAFE_GO_MODULE = /^[a-zA-Z0-9.-]+\/[a-zA-Z0-9._\-/]+$/;
-const SAFE_GH_URL = /^https:\/\/github\.com\/[a-zA-Z0-9._-]+\/[a-zA-Z0-9._-]+\/(issues|pull)\/\d+$/;
+const SAFE_GH_URL =
+  /^https:\/\/github\.com\/[a-zA-Z0-9._-]+\/[a-zA-Z0-9._-]+\/(issues|pull)\/\d+\/?(?:[?#].*)?$/;
 
 function validateRepoName(name) {
-  if (!SAFE_NAME.test(name) || name === "." || name === "..")
+  if (!SAFE_NAME.test(name) || name === "." || name === ".." || name.startsWith("-"))
     throw new Error(`Invalid repo name: ${name}`);
   return name;
 }
@@ -108,12 +109,12 @@ function validateVersion(v) {
 }
 
 function validateGoVersion(v) {
-  if (!SAFE_GO_VERSION.test(v)) throw new Error(`Invalid Go version: ${v}`);
+  if (!SAFE_GO_VERSION.test(v) || v.startsWith("-")) throw new Error(`Invalid Go version: ${v}`);
   return v;
 }
 
 function validateGoModule(m) {
-  if (!SAFE_GO_MODULE.test(m) || /(?:^|\/)\.\.(?:\/|$)/.test(m))
+  if (!SAFE_GO_MODULE.test(m) || /(?:^|\/)\.\.(?:\/|$)/.test(m) || m.startsWith("-"))
     throw new Error(`Invalid Go module path: ${m}`);
   return m;
 }
@@ -251,7 +252,7 @@ server.registerTool(
   async ({ repo, skipLint, skipMarkdown }) => {
     validateRepoName(repo);
     const repoPath = REPO_BASE ? resolve(REPO_BASE, repo) : repo;
-    if (REPO_BASE && !repoPath.toLowerCase().startsWith(REPO_BASE.toLowerCase())) {
+    if (REPO_BASE && relative(REPO_BASE, repoPath).startsWith("..")) {
       return reply({
         ok: false,
         tool: "validate-repo.sh",
@@ -402,11 +403,31 @@ server.registerTool(
     },
   },
   async ({ url, itemId, status }) => {
+    if (url && itemId) {
+      return reply({
+        ok: false,
+        tool: "project-board.sh",
+        data: null,
+        error: "url and itemId are mutually exclusive",
+      });
+    }
+    if (!url && !itemId) {
+      return reply({
+        ok: false,
+        tool: "project-board.sh",
+        data: null,
+        error: "Either url or itemId is required",
+      });
+    }
     if (url) validateGhUrl(url);
     if (itemId && !/^[A-Za-z0-9+/=_-]+$/.test(itemId)) {
       return reply({ ok: false, tool: "project-board.sh", data: null, error: "Invalid item ID" });
     }
-    if (!/^[A-Za-z0-9 ]+$/.test(status)) {
+    const hasControlChars = [...status].some((c) => {
+      const code = c.charCodeAt(0);
+      return code < 0x20 || code === 0x7f;
+    });
+    if (hasControlChars || status.length === 0 || status.length > 50) {
       return reply({
         ok: false,
         tool: "project-board.sh",
