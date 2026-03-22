@@ -54,7 +54,7 @@ Auto-discovered via `.mcp.json`. Exposes bash scripts as structured MCP tools:
 | `cm_validate_repo` | validate-repo.sh | Build + test + lint a single repo |
 | `cm_validate_all` | validate-all.sh | Validate all manifest repos |
 | `cm_sync_deps` | sync-deps.sh | Bump a go.mod dependency across repos |
-| `cm_tag_repo` | tag-all.sh | Tag all repos at a version (single-repo not yet supported) |
+| `cm_tag_repo` | tag-all.sh | Tag a single repo (not yet implemented — fails fast) |
 | `cm_tag_all` | tag-all.sh | Tag all repos in dependency order |
 | `cm_project_add` | project-board.sh | Add an item to the project board |
 | `cm_project_status` | project-board.sh | Update item status on the project board |

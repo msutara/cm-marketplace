@@ -5,6 +5,10 @@ set -euo pipefail
 
 # Parse flags early (before any validation) so JSON_OUTPUT is available for all error paths
 JSON_OUTPUT=false
+# Pre-scan for --json so all error paths can emit JSON
+for arg in "$@"; do
+  if [ "$arg" = "--json" ]; then JSON_OUTPUT=true; break; fi
+done
 SKIP_LINT=false
 SKIP_MARKDOWN=false
 _positional_args=()
@@ -22,6 +26,14 @@ for arg in "$@"; do
     *) _positional_args+=("$arg") ;;
   esac
 done
+
+if [ ${#_positional_args[@]} -gt 1 ]; then
+  echo "Error: too many positional arguments (expected at most 1: repo-path)" >&2
+  if $JSON_OUTPUT; then
+    jq -nc --arg error "too many positional arguments (expected at most 1: repo-path)" '{ok: false, tool: "validate-repo", data: null, error: $error}'
+  fi
+  exit 1
+fi
 
 REPO_PATH="${_positional_args[0]:-}"
 if [ -z "$REPO_PATH" ]; then
@@ -156,7 +168,7 @@ fi
 if $JSON_OUTPUT; then
   # Build per-step JSON objects and assemble the data
   _data_json="{}"
-  _error_msg="null"
+  _error_msg=""
   _failed_steps=()
   for i in "${!_json_step_names[@]}"; do
     _sname="${_json_step_names[$i]}"
@@ -174,13 +186,13 @@ if $JSON_OUTPUT; then
     fi
   done
   if [ "$OVERALL" -ne 0 ]; then
-    _error_msg="\"$REPO_NAME: ${_failed_steps[*]} failed\""
+    _error_msg="$REPO_NAME: ${_failed_steps[*]} failed"
   fi
   jq -nc \
     --argjson ok "$([ "$OVERALL" -eq 0 ] && echo true || echo false)" \
     --arg repo "$REPO_NAME" \
     --argjson data "$_data_json" \
-    --argjson error "$_error_msg" \
-    '{ok: $ok, tool: "validate-repo", data: ({repo: $repo} + $data), error: $error}'
+    --arg error "$_error_msg" \
+    '{ok: $ok, tool: "validate-repo", data: ({repo: $repo} + $data), error: (if $error == "" then null else $error end)}'
 fi
 exit "$OVERALL"

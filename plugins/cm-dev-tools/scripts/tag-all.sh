@@ -5,6 +5,10 @@ set -euo pipefail
 
 # Parse flags early (before any validation) so JSON_OUTPUT is available for all error paths
 JSON_OUTPUT=false
+# Pre-scan for --json so all error paths can emit JSON
+for arg in "$@"; do
+  if [ "$arg" = "--json" ]; then JSON_OUTPUT=true; break; fi
+done
 DRY_RUN=false
 _positional_args=()
 for arg in "$@"; do
@@ -20,6 +24,14 @@ for arg in "$@"; do
     *) _positional_args+=("$arg") ;;
   esac
 done
+
+if [ ${#_positional_args[@]} -gt 1 ]; then
+  echo "Error: too many positional arguments (expected at most 1: version)" >&2
+  if $JSON_OUTPUT; then
+    jq -nc --arg error "too many positional arguments (expected at most 1: version)" '{ok: false, tool: "tag-all", data: null, error: $error}'
+  fi
+  exit 1
+fi
 
 VERSION="${_positional_args[0]:-}"
 if [ -z "$VERSION" ]; then

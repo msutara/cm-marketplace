@@ -6,6 +6,10 @@ set -euo pipefail
 
 # Parse --json early (before any validation) so JSON_OUTPUT is available for all error paths
 JSON_OUTPUT=false
+# Pre-scan for --json so all error paths can emit JSON
+for arg in "$@"; do
+  if [ "$arg" = "--json" ]; then JSON_OUTPUT=true; break; fi
+done
 _positional_args=()
 for arg in "$@"; do
   case "$arg" in
@@ -19,6 +23,14 @@ for arg in "$@"; do
     *) _positional_args+=("$arg") ;;
   esac
 done
+
+if [ ${#_positional_args[@]} -gt 2 ]; then
+  echo "Error: too many positional arguments (expected at most 2: source-module, version)" >&2
+  if $JSON_OUTPUT; then
+    jq -nc --arg error "too many positional arguments (expected at most 2: source-module, version)" '{ok: false, tool: "sync-deps", data: null, error: $error}'
+  fi
+  exit 1
+fi
 
 SOURCE_MODULE="${_positional_args[0]:-}"
 VERSION="${_positional_args[1]:-}"

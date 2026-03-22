@@ -33,16 +33,16 @@ log() {
 # Helper: emit JSON error and exit
 json_error() {
   local msg="$1"
-  local action="${2:-null}"
-  local url="${3:-null}"
-  local item_id="${4:-null}"
+  local action="${2:-}"
+  local url="${3:-}"
+  local item_id="${4:-}"
   if $JSON_OUTPUT; then
     jq -nc \
       --arg error "$msg" \
       --arg action "$action" \
       --arg url "$url" \
       --arg item_id "$item_id" \
-      '{ok: false, tool: "project-board", data: {action: $action, url: (if $url == "null" then null else $url end), itemId: (if $item_id == "null" then null else $item_id end), status: null}, error: $error}'
+      '{ok: false, tool: "project-board", data: {action: (if $action == "" then null else $action end), url: (if $url == "" then null else $url end), itemId: (if $item_id == "" then null else $item_id end), status: null}, error: $error}'
   fi
 }
 

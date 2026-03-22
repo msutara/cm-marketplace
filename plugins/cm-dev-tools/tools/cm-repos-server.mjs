@@ -89,6 +89,7 @@ if (REPO_BASE) {
 
 const SAFE_NAME = /^[a-zA-Z0-9_.-]+$/;
 const SAFE_SEMVER = /^v?\d+\.\d+\.\d+([a-zA-Z0-9.+-]*)?$/;
+const SAFE_GO_VERSION = /^v?[a-zA-Z0-9._+-]+$/;
 const SAFE_GO_MODULE = /^[a-zA-Z0-9.-]+\/[a-zA-Z0-9._\-/]+$/;
 const SAFE_GH_URL = /^https:\/\/github\.com\/[a-zA-Z0-9._-]+\/[a-zA-Z0-9._-]+\/(issues|pull)\/\d+$/;
 
@@ -100,6 +101,11 @@ function validateRepoName(name) {
 
 function validateVersion(v) {
   if (!SAFE_SEMVER.test(v)) throw new Error(`Invalid version: ${v}`);
+  return v;
+}
+
+function validateGoVersion(v) {
+  if (!SAFE_GO_VERSION.test(v)) throw new Error(`Invalid Go version: ${v}`);
   return v;
 }
 
@@ -296,7 +302,7 @@ server.registerTool(
   },
   async ({ sourceModule, version }) => {
     validateGoModule(sourceModule);
-    validateVersion(version);
+    validateGoVersion(version);
     const args = [sourceModule, version];
     return reply(await runScript("sync-deps.sh", args));
   },
@@ -307,26 +313,24 @@ server.registerTool(
 server.registerTool(
   "cm_tag_repo",
   {
-    title: "Tag Repo",
+    title: "Tag Repo (Not Yet Implemented)",
     description:
-      "Create a git tag for a repo. " +
-      "LIMITATION: tag-all.sh tags ALL repos in dependency order — " +
-      "single-repo tagging is not yet supported. " +
-      "The repo parameter is accepted but all repos will be tagged. " +
-      "Repos already at the target version are skipped.",
+      "Create a git tag for a single repo. " +
+      "NOTE: Single-repo tagging is not yet supported. " +
+      "This tool fails fast to avoid accidentally tagging all repos. " +
+      "Use cm_tag_all to tag all repos when that is your intent.",
     inputSchema: {
-      repo: z.string().describe("Repo name (accepted but all repos are tagged — see description)"),
+      repo: z.string().describe("Target repo name (single-repo tagging not yet implemented)"),
       version: z.string().describe("Semver tag (e.g. 'v1.2.3')"),
       dryRun: z.boolean().optional().describe("Simulate tagging without creating tags or pushing"),
     },
   },
   async ({ repo, version, dryRun }) => {
-    validateRepoName(repo);
-    validateVersion(version);
-    log(`Note: cm_tag_repo called for '${repo}' but tag-all.sh tags all repos`);
-    const args = [version];
-    if (dryRun) args.push("--dry-run");
-    return reply(await runScript("tag-all.sh", args, { timeout: 300_000 }));
+    throw new Error(
+      `cm_tag_repo is not yet implemented for single repositories ` +
+        `(requested repo: '${repo}', version: '${version}', dryRun: ${dryRun === true}). ` +
+        "To tag all repos, use the cm_tag_all tool instead.",
+    );
   },
 );
 

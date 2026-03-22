@@ -41,6 +41,7 @@ SUMMARIES=()
 # JSON accumulators
 _json_repo_names=()
 _json_repo_pass=()
+_json_repo_details=()
 _passed_count=0
 _failed_count=0
 
@@ -52,6 +53,7 @@ for repo in "${REPOS[@]}"; do
     ALL_PASSED=1
     _json_repo_names+=("$repo")
     _json_repo_pass+=(false)
+    _json_repo_details+=('null')
     (( _failed_count++ )) || true
     continue
   fi
@@ -62,12 +64,14 @@ for repo in "${REPOS[@]}"; do
       SUMMARIES+=("✅ $repo")
       _json_repo_names+=("$repo")
       _json_repo_pass+=(true)
+      _json_repo_details+=("${_sub_json:-null}")
       (( _passed_count++ )) || true
     else
       SUMMARIES+=("❌ $repo")
       ALL_PASSED=1
       _json_repo_names+=("$repo")
       _json_repo_pass+=(false)
+      _json_repo_details+=("${_sub_json:-null}")
       (( _failed_count++ )) || true
     fi
   else
@@ -75,12 +79,14 @@ for repo in "${REPOS[@]}"; do
       SUMMARIES+=("✅ $repo")
       _json_repo_names+=("$repo")
       _json_repo_pass+=(true)
+      _json_repo_details+=('null')
       (( _passed_count++ )) || true
     else
       SUMMARIES+=("❌ $repo")
       ALL_PASSED=1
       _json_repo_names+=("$repo")
       _json_repo_pass+=(false)
+      _json_repo_details+=('null')
       (( _failed_count++ )) || true
     fi
   fi
@@ -105,7 +111,8 @@ if $JSON_OUTPUT; then
     _repos_json=$(printf '%s' "$_repos_json" | jq -c \
       --arg name "${_json_repo_names[$i]}" \
       --argjson pass "${_json_repo_pass[$i]}" \
-      '. + [{name: $name, pass: $pass}]')
+      --argjson detail "${_json_repo_details[$i]}" \
+      '. + [{name: $name, pass: $pass, detail: $detail}]')
   done
   _error_msg="null"
   if [ "$ALL_PASSED" -ne 0 ]; then

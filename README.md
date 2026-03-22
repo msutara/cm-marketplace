@@ -70,7 +70,7 @@ discovery. Auto-registered via `.mcp.json` in the plugin root.
 | `cm_validate_repo` | Build + test + lint a single repo |
 | `cm_validate_all` | Validate all manifest repos |
 | `cm_sync_deps` | Bump a go.mod dependency across repos |
-| `cm_tag_repo` | Tag all repos at a version (single-repo not yet supported) |
+| `cm_tag_repo` | Tag a single repo (not yet implemented — fails fast) |
 | `cm_tag_all` | Tag all repos in dependency order |
 | `cm_project_add` | Add an item to the project board |
 | `cm_project_status` | Update item status on the project board |
