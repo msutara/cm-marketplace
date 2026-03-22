@@ -1,5 +1,13 @@
 # CM Marketplace — Release History
 
+## [1.1.2] — 2026-03-22
+
+### Fixed
+
+- MCP server launcher failed to start (error 3200) — `@modelcontextprotocol/sdk`
+  1.27.1 ships without a root CJS entry point (`dist/cjs/index.js`); changed
+  dependency check to resolve `@modelcontextprotocol/sdk/server` subpath instead
+
 ## [1.1.1] — 2026-03-22
 
 ### Changed
