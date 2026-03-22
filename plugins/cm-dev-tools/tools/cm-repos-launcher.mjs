@@ -6,11 +6,10 @@
  * Called by .mcp.json via: node ${CLAUDE_PLUGIN_ROOT}/tools/cm-repos-launcher.mjs
  *
  * 1. Checks that npm dependencies are installed
- * 2. Runs npm ci --omit=dev if needed (first-run only)
+ * 2. Fails with an actionable message if deps are missing
  * 3. Dynamically imports cm-repos-server.mjs (same process — no subprocess)
  */
 
-import { execFileSync } from "node:child_process";
 import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -41,19 +40,11 @@ function depsInstalled() {
 }
 
 if (!depsInstalled()) {
-  log("Dependencies not found — running npm ci --omit=dev …");
-  try {
-    execFileSync("npm", ["ci", "--omit=dev"], {
-      cwd: repoRoot,
-      stdio: ["ignore", "ignore", "inherit"], // stderr → visible, stdout → discarded
-      shell: process.platform === "win32", // npm is a .cmd on Windows
-      timeout: 120_000,
-    });
-    log("Dependencies installed successfully.");
-  } catch (err) {
-    log(`Failed to install dependencies: ${err.message}`);
-    process.exit(1);
-  }
+  log(
+    "Dependencies not found. Run the following command once from the cm-marketplace root:\n" +
+      `  cd ${repoRoot} && npm ci --omit=dev\n`,
+  );
+  process.exit(1);
 }
 
 // ── Launch server ────────────────────────────────────────────────────────────

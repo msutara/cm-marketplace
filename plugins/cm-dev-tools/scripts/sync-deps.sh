@@ -10,6 +10,10 @@ JSON_OUTPUT=false
 for arg in "$@"; do
   if [ "$arg" = "--json" ]; then JSON_OUTPUT=true; break; fi
 done
+if $JSON_OUTPUT && ! command -v jq &>/dev/null; then
+  printf '{"ok":false,"tool":"sync-deps","data":null,"error":"jq is required for --json output but is not installed"}\n'
+  exit 1
+fi
 _positional_args=()
 for arg in "$@"; do
   case "$arg" in

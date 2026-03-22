@@ -14,6 +14,11 @@ for arg in "$@"; do
   fi
 done
 
+if $JSON_OUTPUT && ! command -v jq &>/dev/null; then
+  printf '{"ok":false,"tool":"validate-all","data":null,"error":"jq is required for --json output but is not installed"}\n'
+  exit 1
+fi
+
 # Helper: log to stderr when in JSON mode, stdout otherwise
 log() {
   if $JSON_OUTPUT; then

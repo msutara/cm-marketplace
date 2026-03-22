@@ -9,6 +9,10 @@ JSON_OUTPUT=false
 for arg in "$@"; do
   if [ "$arg" = "--json" ]; then JSON_OUTPUT=true; break; fi
 done
+if $JSON_OUTPUT && ! command -v jq &>/dev/null; then
+  printf '{"ok":false,"tool":"tag-all","data":null,"error":"jq is required for --json output but is not installed"}\n'
+  exit 1
+fi
 DRY_RUN=false
 _positional_args=()
 for arg in "$@"; do

@@ -54,7 +54,10 @@ function detectRepoBase() {
     if (existsSync(join(process.env.CM_REPO_BASE, ".cm", "project.json"))) {
       return process.env.CM_REPO_BASE;
     }
-    log(`CM_REPO_BASE set to ${process.env.CM_REPO_BASE} but .cm/project.json not found there`);
+    log(
+      `CM_REPO_BASE set to ${process.env.CM_REPO_BASE} but .cm/project.json not found there; unsetting to allow auto-detection`,
+    );
+    delete process.env.CM_REPO_BASE;
   }
 
   // 2. Walk up from cwd
@@ -88,7 +91,7 @@ if (REPO_BASE) {
 // ── Input validation ─────────────────────────────────────────────────────────
 
 const SAFE_NAME = /^[a-zA-Z0-9_.-]+$/;
-const SAFE_SEMVER = /^v?\d+\.\d+\.\d+([a-zA-Z0-9.+-]*)?$/;
+const SAFE_SEMVER = /^v\d+\.\d+\.\d+$/;
 const SAFE_GO_VERSION = /^v?[a-zA-Z0-9._+-]+$/;
 const SAFE_GO_MODULE = /^[a-zA-Z0-9.-]+\/[a-zA-Z0-9._\-/]+$/;
 const SAFE_GH_URL = /^https:\/\/github\.com\/[a-zA-Z0-9._-]+\/[a-zA-Z0-9._-]+\/(issues|pull)\/\d+$/;

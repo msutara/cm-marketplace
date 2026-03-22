@@ -14,6 +14,10 @@ for arg in "$@"; do
   fi
 done
 set -- "${ARGS[@]+"${ARGS[@]}"}"
+if $JSON_OUTPUT && ! command -v jq &>/dev/null; then
+  printf '{"ok":false,"tool":"repo-status","data":null,"error":"jq is required for --json output but is not installed"}\n'
+  exit 1
+fi
 
 # Helper: log to stderr when in JSON mode, stdout otherwise
 log() {
@@ -38,7 +42,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 if ! source "$SCRIPT_DIR/lib/load-project.sh"; then
   echo "Error: failed to load project manifest." >&2
   if $JSON_OUTPUT; then
-    jq -nc '{ok: false, tool: "repo-status", data: null, error: "failed to load project manifest."}'
+    printf '{"ok":false,"tool":"repo-status","data":null,"error":"failed to load project manifest."}\n'
   fi
   exit 1
 fi

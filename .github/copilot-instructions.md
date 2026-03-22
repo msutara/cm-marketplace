@@ -57,4 +57,4 @@ See `CONTRIBUTING.md` for the full guide. Summary:
 - Commit secrets, credentials, or connection strings
 - Skip linting before pushing (`npm run lint:all`)
 - Do not use non-`.sh` extensions for scripts — all helper scripts are bash
-- Add Node.js runtime dependencies — marketplace tooling is lint-only; plugins use bash scripts
+- Add Node.js runtime dependencies unless they support MCP server functionality — general marketplace tooling is lint-only; plugins use bash scripts. The MCP server (`@modelcontextprotocol/sdk`, `zod`) is the sole exception.

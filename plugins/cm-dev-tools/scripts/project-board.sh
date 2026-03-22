@@ -21,6 +21,11 @@ for arg in "$@"; do
 done
 set -- "${_raw_args[@]+"${_raw_args[@]}"}"
 
+if $JSON_OUTPUT && ! command -v jq &>/dev/null; then
+  printf '{"ok":false,"tool":"project-board","data":null,"error":"jq is required for --json output but is not installed"}\n'
+  exit 1
+fi
+
 # Helper: log to stderr when in JSON mode, stdout otherwise
 log() {
   if $JSON_OUTPUT; then
