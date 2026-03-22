@@ -200,8 +200,9 @@ Closes #{issue_number}
 
 ### Phase 8 — Project Board
 
-Add the PR to the GitHub project and set status to the review status defined
-in `.cm/project.json` (key matching "Review" in `.project_board.statuses`):
+Add the PR to the GitHub project and set its status to the value of
+`.project_board.statuses.Review` from `.cm/project.json` (the status option ID
+configured under the `Review` key):
 
 ```bash
 gh project item-add {PROJECT_NUMBER} --owner {OWNER} --url {PR_URL}

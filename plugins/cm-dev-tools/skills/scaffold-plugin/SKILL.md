@@ -126,15 +126,16 @@ go 1.24.0
 
 require github.com/go-chi/chi/v5 v5.2.5
 
-require github.com/{OWNER}/config-manager-core {CORE_VERSION}
+require github.com/{OWNER}/config-manager-core v0.0.0
 ```
 
-Replace `{CORE_VERSION}` with the latest tag from the reference repo defined in
-`.cm/project.json` (`.reference_repo`):
+Before running `go mod tidy`, replace the placeholder `v0.0.0` with the latest
+tag from the reference repo (`.reference_repo` in `.cm/project.json`):
 
 ```bash
 _ref=$(jq -r '.reference_repo' "$CM_REPO_BASE/.cm/project.json")
-git -C "$CM_REPO_BASE/$_ref" describe --tags --abbrev=0
+_ver=$(git -C "$CM_REPO_BASE/$_ref" describe --tags --abbrev=0)
+sed -i "s|config-manager-core v0.0.0|config-manager-core $_ver|" go.mod
 ```
 
 After writing the file, run:
