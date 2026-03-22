@@ -10,7 +10,7 @@
     `cm_sync_deps`, `cm_tag_repo`, `cm_tag_all`, `cm_project_add`,
     `cm_project_status`
   - Auto-discovery via `.mcp.json` in plugin root
-  - Bootstrap launcher with first-run dependency installation
+  - Bootstrap launcher with dependency check and actionable install instructions
   - Per-tool timeouts, Windows Git Bash support, `CM_REPO_BASE` auto-detection
 - **`--json` flag** on 6 bash scripts — structured JSON output for programmatic
   consumption (repo-status, validate-repo, validate-all, project-board,

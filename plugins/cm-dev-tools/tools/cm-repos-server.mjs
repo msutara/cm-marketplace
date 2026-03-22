@@ -113,7 +113,8 @@ function validateGoVersion(v) {
 }
 
 function validateGoModule(m) {
-  if (!SAFE_GO_MODULE.test(m)) throw new Error(`Invalid Go module path: ${m}`);
+  if (!SAFE_GO_MODULE.test(m) || /(?:^|\/)\.\.(?:\/|$)/.test(m))
+    throw new Error(`Invalid Go module path: ${m}`);
   return m;
 }
 
@@ -250,7 +251,7 @@ server.registerTool(
   async ({ repo, skipLint, skipMarkdown }) => {
     validateRepoName(repo);
     const repoPath = REPO_BASE ? resolve(REPO_BASE, repo) : repo;
-    if (REPO_BASE && !repoPath.startsWith(REPO_BASE)) {
+    if (REPO_BASE && !repoPath.toLowerCase().startsWith(REPO_BASE.toLowerCase())) {
       return reply({
         ok: false,
         tool: "validate-repo.sh",

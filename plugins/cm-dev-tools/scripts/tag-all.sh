@@ -147,7 +147,7 @@ for repo in "${DEP_ORDER[@]}"; do
     if [ -z "$_remote_tags" ]; then
       if [ "$DRY_RUN" = true ]; then
         log "  [DRY RUN] Would push existing local tag $VERSION for $repo"
-        _json_repos+=("$(jq -nc --arg name "$repo" --arg tag "$VERSION" '{name: $name, action: "skipped", tag: $tag}')")
+        _json_repos+=("$(jq -nc --arg name "$repo" --arg tag "$VERSION" '{name: $name, action: "would_push", tag: $tag}')")
       else
         log "  📤 $repo has local tag $VERSION but not on remote — pushing..."
         git -C "$path" push origin "$VERSION"
@@ -169,7 +169,7 @@ for repo in "${DEP_ORDER[@]}"; do
 
   if [ "$DRY_RUN" = true ]; then
     log "[DRY RUN] Would tag $repo at $VERSION"
-    _json_repos+=("$(jq -nc --arg name "$repo" --arg tag "$VERSION" '{name: $name, action: "skipped", tag: $tag}')")
+    _json_repos+=("$(jq -nc --arg name "$repo" --arg tag "$VERSION" '{name: $name, action: "would_tag", tag: $tag}')")
   else
     log "Tagging $repo at $VERSION..."
     git -C "$path" tag "$VERSION"
