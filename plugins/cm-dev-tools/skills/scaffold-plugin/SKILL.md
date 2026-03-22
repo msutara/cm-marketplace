@@ -126,7 +126,15 @@ go 1.24.0
 
 require github.com/go-chi/chi/v5 v5.2.5
 
-require github.com/{OWNER}/config-manager-core v0.4.3
+require github.com/{OWNER}/config-manager-core {CORE_VERSION}
+```
+
+Replace `{CORE_VERSION}` with the latest tag from the reference repo defined in
+`.cm/project.json` (`.reference_repo`):
+
+```bash
+_ref=$(jq -r '.reference_repo' "$CM_REPO_BASE/.cm/project.json")
+git -C "$CM_REPO_BASE/$_ref" describe --tags --abbrev=0
 ```
 
 After writing the file, run:

@@ -111,6 +111,8 @@ See [`docs/project.example.json`](docs/project.example.json) for the full schema
 
 ## Repos Managed
 
+Defined in `$CM_REPO_BASE/.cm/project.json` (see [`docs/project.example.json`](docs/project.example.json) for schema).
+
 | Repo | Role |
 | --- | --- |
 | [`config-manager-core`](https://github.com/msutara/config-manager-core) | Central service, plugin registry, scheduler, API |

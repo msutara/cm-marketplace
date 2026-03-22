@@ -2,8 +2,8 @@
 name: cm-parity-check
 description: >
   Verify functional, security, test, and documentation parity between
-  config-manager-tui (Bubble Tea terminal UI) and config-manager-web
-  (htmx + Go templates web UI). Reports gaps without making changes.
+  the UI repos defined in .cm/project.json (those with roles containing
+  "TUI" or "web UI"). Reports gaps without making changes.
   USE FOR: parity check, check parity, tui web sync, compare tui web,
   parity audit, ui parity, check ui parity, verify parity, parity report.
 ---
@@ -14,8 +14,8 @@ description: >
 
 The Config Manager project enforces a **permanent parity rule**:
 
-> config-manager-tui and config-manager-web MUST be kept functionally and
-> test-wise identical.
+> The UI repos listed in `.cm/project.json` (roles containing "TUI" or "web UI")
+> MUST be kept functionally and test-wise identical.
 >
 > 1. Every feature implemented in one UI must exist in the other.
 > 2. Every security pattern (sanitization, body limits, token masking, input
