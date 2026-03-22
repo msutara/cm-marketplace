@@ -5,8 +5,8 @@
 ### Changed
 
 - Skill prompts now reference `.cm/project.json` manifest instead of hardcoded
-  repo names, statuses, and versions (cm-parity-check, cm-pr-lifecycle,
-  scaffold-plugin)
+  repo names and statuses (cm-parity-check, cm-pr-lifecycle); scaffold-plugin
+  version placeholder replaced with dynamic tag detection
 - README notes repos are defined in manifest
 
 ## [1.1.0] — 2026-03-22
