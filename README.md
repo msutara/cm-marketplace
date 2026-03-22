@@ -47,6 +47,7 @@ claude plugin install cm-dev-tools@cm-marketplace
 Helper scripts that skills invoke directly — no intermediary server needed.
 Scripts read project context (repos, owner, board IDs) from
 `$CM_REPO_BASE/.cm/project.json` via a shared library.
+All scripts (except init-project.sh) support `--json` for structured output.
 
 | Script | Usage |
 | --- | --- |
@@ -57,6 +58,22 @@ Scripts read project context (repos, owner, board IDs) from
 | `tag-all.sh` | Tag all repos in dependency order from manifest |
 | `sync-deps.sh` | Bump go.mod dependency across downstream repos |
 | `project-board.sh` | Add items and update status on GitHub project board |
+
+### MCP Server (`cm-repos`)
+
+Stdio MCP server that wraps the bash scripts above for structured AI agent
+discovery. Auto-registered via `.mcp.json` in the plugin root.
+
+| MCP Tool | Description |
+| --- | --- |
+| `cm_repo_status` | Git branch, clean state, and last tag |
+| `cm_validate_repo` | Build + test + lint a single repo |
+| `cm_validate_all` | Validate all manifest repos |
+| `cm_sync_deps` | Bump a go.mod dependency across repos |
+| `cm_tag_repo` | Tag a single repo (not yet implemented — fails fast) |
+| `cm_tag_all` | Tag all repos in dependency order |
+| `cm_project_add` | Add an item to the project board |
+| `cm_project_status` | Update item status on the project board |
 
 ### Custom Agents (2)
 
@@ -153,15 +170,18 @@ cm-marketplace/
 │       │   ├── tag-all.sh              # Tag repos in dependency order
 │       │   ├── sync-deps.sh            # Bump go.mod dependencies
 │       │   └── project-board.sh        # GitHub project board automation
-│       └── tools/
-│           └── ensure-prerequisites.mjs # Preflight CLI tool checker
+│       ├── tools/
+│       │   ├── ensure-prerequisites.mjs # Preflight CLI tool checker
+│       │   ├── cm-repos-server.mjs     # MCP server (8 tools)
+│       │   └── cm-repos-launcher.mjs   # MCP bootstrap launcher
+│       └── .mcp.json                   # MCP server auto-registration
 ├── docs/
 │   └── project.example.json           # Template for project manifest
 ├── LICENSE                           # GPL-3.0
 ├── README.md                         # This file
 ├── RELEASES.md                       # Version history
 ├── CONTRIBUTING.md                   # How to add plugins/skills
-├── package.json                      # Lint tooling (markdownlint + Biome)
+├── package.json                      # Dependencies (MCP SDK, Zod, markdownlint, Biome)
 ├── package-lock.json                 # Locked dependency versions
 ├── .editorconfig                     # Editor formatting rules
 ├── .gitattributes                    # LF enforcement for *.sh

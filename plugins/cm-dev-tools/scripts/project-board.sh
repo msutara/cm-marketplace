@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # project-board.sh — Add/update items on the CM GitHub project board
-# Usage: ./project-board.sh --url <github-url> [--status <status-from-manifest>]
-#        ./project-board.sh --item-id <id> --status <status-from-manifest>
+# Usage: ./project-board.sh --url <github-url> [--status <status-from-manifest>] [--json]
+#        ./project-board.sh --item-id <id> --status <status-from-manifest> [--json]
 set -euo pipefail
 
 _cleanup_files=()
@@ -9,9 +9,53 @@ _cleanup_files=()
 cleanup() { if [[ ${#_cleanup_files[@]} -gt 0 ]]; then rm -f "${_cleanup_files[@]}"; fi; }
 trap cleanup EXIT INT TERM
 
+# Parse --json early (before other arg processing)
+JSON_OUTPUT=false
+_raw_args=()
+for arg in "$@"; do
+  if [[ "$arg" == "--json" ]]; then
+    JSON_OUTPUT=true
+  else
+    _raw_args+=("$arg")
+  fi
+done
+set -- "${_raw_args[@]+"${_raw_args[@]}"}"
+
+if $JSON_OUTPUT && ! command -v jq &>/dev/null; then
+  printf '{"ok":false,"tool":"project-board","data":null,"error":"jq is required for --json output but is not installed"}\n'
+  exit 1
+fi
+
+# Helper: log to stderr when in JSON mode, stdout otherwise
+log() {
+  if $JSON_OUTPUT; then
+    echo "$@" >&2
+  else
+    echo "$@"
+  fi
+}
+log_err() { echo "$@" >&2; }
+
+# Helper: emit JSON error and exit
+json_error() {
+  local msg="$1"
+  local action="${2:-}"
+  local url="${3:-}"
+  local item_id="${4:-}"
+  if $JSON_OUTPUT; then
+    jq -nc \
+      --arg error "$msg" \
+      --arg action "$action" \
+      --arg url "$url" \
+      --arg item_id "$item_id" \
+      '{ok: false, tool: "project-board", data: {action: (if $action == "" then null else $action end), url: (if $url == "" then null else $url end), itemId: (if $item_id == "" then null else $item_id end), status: null}, error: $error}'
+  fi
+}
+
 # Verify gh CLI is available
 if ! command -v gh &>/dev/null; then
   echo "Error: gh (GitHub CLI) is required but not installed. See: https://cli.github.com/" >&2
+  json_error "gh (GitHub CLI) is required but not installed."
   exit 1
 fi
 
@@ -19,7 +63,13 @@ fi
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=lib/load-project.sh
-source "$SCRIPT_DIR/lib/load-project.sh"
+if ! source "$SCRIPT_DIR/lib/load-project.sh"; then
+  echo "Error: failed to load project manifest." >&2
+  if $JSON_OUTPUT; then
+    json_error "failed to load project manifest."
+  fi
+  exit 1
+fi
 
 # project-board.sh requires project_board config in the manifest
 if [[ -z "$PROJECT_NUMBER" || "$PROJECT_NUMBER" == "null" || \
@@ -27,6 +77,7 @@ if [[ -z "$PROJECT_NUMBER" || "$PROJECT_NUMBER" == "null" || \
       -z "$STATUS_FIELD_ID" || "$STATUS_FIELD_ID" == "null" ]]; then
   echo "Error: project_board config missing or incomplete in manifest." >&2
   echo "Run init-project.sh to configure project board settings." >&2
+  json_error "project_board config missing or incomplete in manifest."
   exit 1
 fi
 
@@ -36,8 +87,8 @@ ITEM_ID=""
 
 usage() {
   echo "Usage:" >&2
-  echo "  $(basename "$0") --url <github-url> [--status <status>]" >&2
-  echo "  $(basename "$0") --item-id <id> --status <status>" >&2
+  echo "  $(basename "$0") --url <github-url> [--status <status>] [--json]" >&2
+  echo "  $(basename "$0") --item-id <id> --status <status> [--json]" >&2
   echo "  Available statuses are defined in .cm/project.json" >&2
 }
 
@@ -45,79 +96,95 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --url)
       if [[ $# -lt 2 || -z "${2:-}" ]]; then
-        echo "Error: --url requires a non-empty value." >&2; usage; exit 1
+        echo "Error: --url requires a non-empty value." >&2; json_error "--url requires a non-empty value."; usage; exit 1
       fi
       URL="$2"; shift 2 ;;
     --status)
       if [[ $# -lt 2 || -z "${2:-}" ]]; then
-        echo "Error: --status requires a non-empty value." >&2; usage; exit 1
+        echo "Error: --status requires a non-empty value." >&2; json_error "--status requires a non-empty value."; usage; exit 1
       fi
       STATUS="$2"; shift 2 ;;
     --item-id)
       if [[ $# -lt 2 || -z "${2:-}" ]]; then
-        echo "Error: --item-id requires a non-empty value." >&2; usage; exit 1
+        echo "Error: --item-id requires a non-empty value." >&2; json_error "--item-id requires a non-empty value."; usage; exit 1
       fi
       ITEM_ID="$2"
       if [[ ! "$ITEM_ID" =~ ^[A-Za-z0-9+/=_-]+$ ]]; then
-        echo "Error: --item-id contains invalid characters: $ITEM_ID (expected base64-safe: [A-Za-z0-9+/=_-])" >&2; exit 1
+        echo "Error: --item-id contains invalid characters: $ITEM_ID (expected base64-safe: [A-Za-z0-9+/=_-])" >&2; json_error "--item-id contains invalid characters."; exit 1
       fi
       shift 2 ;;
-    *) echo "Error: unknown option: $1" >&2; usage; exit 1 ;;
+    *) echo "Error: unknown option: $1" >&2; json_error "unknown option: $1"; usage; exit 1 ;;
   esac
 done
 
 if [[ -z "$URL" && -z "$ITEM_ID" && -z "$STATUS" ]]; then
   echo "Error: at least one of --url, --item-id, or --status must be provided." >&2
+  json_error "at least one of --url, --item-id, or --status must be provided."
   usage
   exit 1
 fi
 
 if [[ -n "$URL" && -n "$ITEM_ID" ]]; then
   echo "Error: --url and --item-id are mutually exclusive. Provide one identifier, not both." >&2
+  json_error "--url and --item-id are mutually exclusive." "" "$URL" "$ITEM_ID"
   usage
   exit 1
 fi
 
 if [[ -n "$STATUS" && -z "$URL" && -z "$ITEM_ID" ]]; then
   echo "Error: --status requires either --url or --item-id to identify the item." >&2
+  json_error "--status requires either --url or --item-id to identify the item."
   usage
   exit 1
 fi
 
 if [[ -n "$ITEM_ID" && -z "$STATUS" && -z "$URL" ]]; then
   echo "Error: --item-id requires --status to specify the desired state." >&2
+  json_error "--item-id requires --status to specify the desired state." "" "" "$ITEM_ID"
   usage
   exit 1
 fi
 
+# Track action for JSON output
+_json_action=""
+_json_url="${URL:-}"
+_json_item_id="${ITEM_ID:-}"
+_json_status=""
+
 # Add item if URL provided
 ADDED_ITEM_ID=""
 if [ -n "$URL" ]; then
-  echo "Adding $URL to project board..."
+  log "Adding $URL to project board..."
+  _json_action="add"
   _gh_add_err=$(mktemp "${TMPDIR:-/tmp}/cm-project-board.XXXXXX"); _cleanup_files+=("$_gh_add_err")
   if add_result=$(gh project item-add "$PROJECT_NUMBER" --owner "$OWNER" --url "$URL" --format json 2>"$_gh_add_err"); then
     if ! ADDED_ITEM_ID=$(printf '%s' "$add_result" | jq -er '.id // empty' 2>/dev/null); then
-      echo "  ❌ Failed to parse project item ID from gh output." >&2
+      log_err "  ❌ Failed to parse project item ID from gh output."
       echo "      Raw output: $add_result" >&2
+      json_error "Failed to parse project item ID from gh output." "add" "$URL"
       exit 1
     fi
     if [ -z "$ADDED_ITEM_ID" ] || [ "$ADDED_ITEM_ID" = "null" ]; then
-      echo "  ❌ Project item ID is missing or null in gh output." >&2
+      log_err "  ❌ Project item ID is missing or null in gh output."
       echo "      Raw output: $add_result" >&2
+      json_error "Project item ID is missing or null in gh output." "add" "$URL"
       exit 1
     fi
-    echo "  ✅ Added to project (item: ${ADDED_ITEM_ID:-unknown})"
+    _json_item_id="$ADDED_ITEM_ID"
+    log "  ✅ Added to project (item: ${ADDED_ITEM_ID:-unknown})"
   else
     # Item may already exist — verify via item-list lookup
-    echo "  ⚠️  item-add failed (may already exist): $(<"$_gh_add_err")"
+    log "  ⚠️  item-add failed (may already exist): $(<"$_gh_add_err")"
     _existing_id=$(gh project item-list "$PROJECT_NUMBER" --owner "$OWNER" --limit 500 --format json 2>/dev/null \
       | jq -r --arg url "$URL" '.items[] | select(.content.url == $url) | .id' 2>/dev/null || true)
     if [ -n "$_existing_id" ]; then
-      echo "  ✅ Item already on board (item: $_existing_id)"
+      log "  ✅ Item already on board (item: $_existing_id)"
       ADDED_ITEM_ID="$_existing_id"
+      _json_item_id="$_existing_id"
     elif [ -z "$STATUS" ]; then
-      echo "  ❌ Failed to add item to project and could not find an existing item for URL '$URL'." >&2
+      log_err "  ❌ Failed to add item to project and could not find an existing item for URL '$URL'."
       echo "      Verify the URL is correct, confirm gh auth and project permissions, then retry." >&2
+      json_error "Failed to add item to project and could not find existing item for URL." "add" "$URL"
       exit 1
     fi
   fi
@@ -125,6 +192,11 @@ fi
 
 # Update status if requested
 if [ -n "$STATUS" ]; then
+  if [ -z "$_json_action" ]; then
+    _json_action="status"
+  fi
+  _json_status="$STATUS"
+
   option_id="${STATUS_OPTIONS[$STATUS]:-}"
   if [ -z "$option_id" ]; then
     if [ ${#STATUS_OPTIONS[@]} -eq 0 ]; then
@@ -132,6 +204,7 @@ if [ -n "$STATUS" ]; then
     else
       echo "Error: Invalid status '$STATUS'. Available: ${!STATUS_OPTIONS[*]}" >&2
     fi
+    json_error "Invalid status '$STATUS'." "$_json_action" "$_json_url" "$_json_item_id"
     exit 1
   fi
 
@@ -145,23 +218,28 @@ if [ -n "$STATUS" ]; then
   fi
 
   if [ -n "$ITEM_ID" ]; then
+    _json_item_id="$ITEM_ID"
     # Validate ALL IDs before GraphQL interpolation to prevent injection
     # GitHub node IDs are base64-encoded, so allow [A-Za-z0-9+/=_-]
     _id_pattern='^[A-Za-z0-9+/=_-]+$'
     if [[ ! "$ITEM_ID" =~ $_id_pattern ]]; then
       echo "Error: Invalid ITEM_ID format '$ITEM_ID' (expected base64-safe: [A-Za-z0-9+/=_-])." >&2
+      json_error "Invalid ITEM_ID format." "$_json_action" "$_json_url" "$_json_item_id"
       exit 1
     fi
     if [[ ! "$PROJECT_ID" =~ $_id_pattern ]]; then
       echo "Error: Invalid PROJECT_ID format from manifest." >&2
+      json_error "Invalid PROJECT_ID format from manifest." "$_json_action" "$_json_url" "$_json_item_id"
       exit 1
     fi
     if [[ ! "$STATUS_FIELD_ID" =~ $_id_pattern ]]; then
       echo "Error: Invalid STATUS_FIELD_ID format from manifest." >&2
+      json_error "Invalid STATUS_FIELD_ID format from manifest." "$_json_action" "$_json_url" "$_json_item_id"
       exit 1
     fi
     if [[ ! "$option_id" =~ $_id_pattern ]]; then
       echo "Error: Invalid option_id format for status '$STATUS'." >&2
+      json_error "Invalid option_id format for status." "$_json_action" "$_json_url" "$_json_item_id"
       exit 1
     fi
     mutation="mutation { updateProjectV2ItemFieldValue(input: {projectId: \"$PROJECT_ID\", itemId: \"$ITEM_ID\", fieldId: \"$STATUS_FIELD_ID\", value: {singleSelectOptionId: \"$option_id\"}}) { projectV2Item { id } } }"
@@ -169,18 +247,30 @@ if [ -n "$STATUS" ]; then
     if output=$(gh api graphql -f query="$mutation" 2>"$_gql_err"); then
       # GraphQL can return 200 with errors in the body
       if printf '%s' "$output" | jq -e '.errors' &>/dev/null; then
-        echo "  ❌ GraphQL mutation returned errors" >&2
+        log_err "  ❌ GraphQL mutation returned errors"
         printf '%s' "$output" | jq -r '.errors[].message' >&2
+        json_error "GraphQL mutation returned errors." "$_json_action" "$_json_url" "$_json_item_id"
         exit 1
       fi
-      echo "  ✅ Status updated to $STATUS"
+      log "  ✅ Status updated to $STATUS"
     else
-      echo "  ❌ Failed to update status" >&2
+      log_err "  ❌ Failed to update status"
       echo "  $(<"$_gql_err")" >&2
+      json_error "Failed to update status." "$_json_action" "$_json_url" "$_json_item_id"
       exit 1
     fi
   else
-    echo "  ⚠️  Could not find item ID — add item first or provide --item-id" >&2
+    log "  ⚠️  Could not find item ID — add item first or provide --item-id"
+    json_error "Could not find item ID." "$_json_action" "$_json_url" "$_json_item_id"
     exit 1
   fi
+fi
+
+if $JSON_OUTPUT; then
+  jq -nc \
+    --arg action "$_json_action" \
+    --arg url "$_json_url" \
+    --arg itemId "$_json_item_id" \
+    --arg status "$_json_status" \
+    '{ok: true, tool: "project-board", data: {action: $action, url: (if $url == "" then null else $url end), itemId: (if $itemId == "" then null else $itemId end), status: (if $status == "" then null else $status end)}, error: null}'
 fi

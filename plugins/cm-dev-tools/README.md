@@ -36,11 +36,30 @@ GitHub Copilot CLI and Claude Code.
 | **CMDeveloper** | Full-stack CM development with embedded project knowledge |
 | **CMReviewer** | Code review specialist with fleet config and false positive suppression |
 
-### Tools (1)
+### Tools (3)
 
 | Tool | Purpose |
 | --- | --- |
 | `ensure-prerequisites.mjs` | Preflight check — verifies all required CLIs are installed and meet minimum versions |
+| `cm-repos-server.mjs` | MCP stdio server exposing 8 tools for multi-repo operations |
+| `cm-repos-launcher.mjs` | Bootstrap launcher — checks deps and starts the MCP server |
+
+### MCP Server (`cm-repos`)
+
+Auto-discovered via `.mcp.json`. Exposes bash scripts as structured MCP tools:
+
+| MCP Tool | Wraps | Description |
+| --- | --- | --- |
+| `cm_repo_status` | repo-status.sh | Git branch, clean state, and last tag |
+| `cm_validate_repo` | validate-repo.sh | Build + test + lint a single repo |
+| `cm_validate_all` | validate-all.sh | Validate all manifest repos |
+| `cm_sync_deps` | sync-deps.sh | Bump a go.mod dependency across repos |
+| `cm_tag_repo` | *(not yet implemented)* | Tag a single repo (fails fast — use `cm_tag_all` instead) |
+| `cm_tag_all` | tag-all.sh | Tag all repos in dependency order |
+| `cm_project_add` | project-board.sh | Add an item to the project board |
+| `cm_project_status` | project-board.sh | Update item status on the project board |
+
+All scripts except `init-project.sh` support `--json` for structured output (used by the MCP server internally).
 
 ## Install
 

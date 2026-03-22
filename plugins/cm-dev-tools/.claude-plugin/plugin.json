@@ -1,7 +1,7 @@
 {
   "name": "cm-dev-tools",
-  "version": "1.0.0",
-  "description": "Config Manager development toolkit: 7 workflow skills (scaffold, fleet review, release, PR lifecycle, parity check, PR comments, docs sync) + bash helper scripts + 2 custom agents. No external servers or MCP services — uses built-in CLI agent capabilities (Copilot CLI / Claude Code), standard local tooling, and shell commands.",
+  "version": "1.1.0",
+  "description": "Config Manager development toolkit: 7 workflow skills (scaffold, fleet review, release, PR lifecycle, parity check, PR comments, docs sync) + bash helper scripts + MCP server (8 tools with structured JSON I/O) + 2 custom agents. Uses built-in CLI agent capabilities (Copilot CLI / Claude Code), standard local tooling, and shell commands.",
   "skills": "./skills/",
   "agents": "./agents/"
 }

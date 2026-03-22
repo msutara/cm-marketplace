@@ -5,14 +5,14 @@
   },
   "metadata": {
     "description": "Plugin marketplace for Config Manager — workflow skills, bash helper scripts, and custom agents for Copilot CLI and Claude Code",
-    "version": "1.0.0"
+    "version": "1.1.0"
   },
   "plugins": [
     {
       "name": "cm-dev-tools",
       "source": "./plugins/cm-dev-tools",
-      "description": "7 workflow skills (scaffold, fleet review, release, PR lifecycle, parity check, PR comments, docs sync) + bash helper scripts + 2 custom agents for the Config Manager project. Works with GitHub Copilot CLI and Claude Code.",
-      "version": "1.0.0"
+      "description": "7 workflow skills (scaffold, fleet review, release, PR lifecycle, parity check, PR comments, docs sync) + bash helper scripts + MCP server + 2 custom agents for the Config Manager project. Works with GitHub Copilot CLI and Claude Code.",
+      "version": "1.1.0"
     }
   ]
 }

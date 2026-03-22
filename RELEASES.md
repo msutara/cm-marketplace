@@ -1,5 +1,22 @@
 # CM Marketplace — Release History
 
+## [1.1.0] — 2026-03-22
+
+### Added
+
+- **MCP server** (`cm-repos`) — stdio MCP server wrapping bash scripts for
+  structured tool discovery by AI agents:
+  - 8 tools: `cm_repo_status`, `cm_validate_repo`, `cm_validate_all`,
+    `cm_sync_deps`, `cm_tag_repo`, `cm_tag_all`, `cm_project_add`,
+    `cm_project_status`
+  - Auto-discovery via `.mcp.json` in plugin root
+  - Bootstrap launcher with dependency check and actionable install instructions
+  - Per-tool timeouts, Windows Git Bash support, `CM_REPO_BASE` auto-detection
+- **`--json` flag** on 6 bash scripts — structured JSON output for programmatic
+  consumption (repo-status, validate-repo, validate-all, project-board,
+  tag-all, sync-deps)
+- **Production dependencies**: `@modelcontextprotocol/sdk` 1.27.1, `zod` 4.3.6
+
 ## [1.0.0] — 2026-03-20
 
 ### Added
