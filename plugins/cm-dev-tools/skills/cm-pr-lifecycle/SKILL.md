@@ -75,9 +75,12 @@ These rules are **permanent and non-negotiable**:
 
 Run all quality gates in the repo root. Every gate must pass before proceeding.
 
+For CI-realistic validation, disable workspace mode so `go.mod` is used
+directly (matches what CI sees):
+
 ```bash
-go build ./...
-go test ./...
+GOWORK=off go build ./...
+GOWORK=off go test ./...
 golangci-lint run
 ```
 
@@ -93,7 +96,8 @@ markdownlint-cli2 "**/*.md" "#node_modules"
 
 Invoke the `cm-fleet-review` skill (or replicate its protocol):
 
-1. Launch **11 parallel review agents** with diverse models
+1. Launch **5–11 parallel review agents** with diverse models (see cm-fleet-review
+   for minimum vs full fleet guidance)
 2. Each agent reviews with its assigned perspective and mandatory checklist
 3. Collect all findings
 4. Filter to confidence **≥ 80**
@@ -162,10 +166,18 @@ git push -u origin {branch-name}
 
 ### Phase 7 — Create PR
 
-Create the pull request via `gh` CLI:
+Verify the correct GitHub account before creating the PR (multi-account
+setups need `gh auth switch`):
 
 ```bash
-gh pr create --title "{title}" --body "{body}" --base main --head {branch-name}
+gh auth status
+```
+
+Create the pull request via `gh` CLI. Use `--body-file` instead of inline
+`--body` to avoid escaping issues on Windows/PowerShell:
+
+```bash
+gh pr create --title "{title}" --body-file /tmp/pr-body.md --base main --head {branch-name}
 ```
 
 The PR body must include:
@@ -191,7 +203,7 @@ Closes #{issue_number}
 - ✅ `go build ./...` — pass
 - ✅ `go test ./...` — pass
 - ✅ `golangci-lint run` — pass
-- ✅ Fleet review (11 agents) — clean
+- ✅ Fleet review (5–11 agents) — clean
 
 ## Test Coverage
 
@@ -287,7 +299,7 @@ git status
 | Phase | Gate | Reversible |
 | --- | --- | --- |
 | 1. Local Validation | build + test + lint must pass | ✅ Yes |
-| 2. Fleet Review | 11-agent review, filter ≥ 80 confidence | ✅ Yes |
+| 2. Fleet Review | 5–11 agent review, filter ≥ 80 confidence | ✅ Yes |
 | 3. Fleet Fix Loop | iterate until clean | ✅ Yes |
 | 4. Stage and Review | **user approval required** | ✅ Yes |
 | 5. Commit | conventional commit + trailer | ⚠️ Amend only |

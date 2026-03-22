@@ -10,12 +10,12 @@ GitHub Copilot CLI and Claude Code.
 | Skill | What It Does |
 | --- | --- |
 | **scaffold-plugin** | Scaffolds a new CM plugin repo with all boilerplate |
-| **cm-fleet-review** | 11-agent multi-model code review |
+| **cm-fleet-review** | 5–11 agent multi-model code review with mandatory checklists |
 | **cm-pr-lifecycle** | Full PR cycle: build → fleet → fix → commit → push → PR → merge |
-| **cm-release** | Cross-repo release with validation, tagging, and release notes |
+| **cm-release** | Multi-wave cross-repo release with go.mod sync and rich notes |
 | **cm-parity-check** | TUI ↔ Web feature and security parity verification |
 | **cm-pr-comments** | PR comment triage, risk assessment, and thread resolution |
-| **cm-docs-sync** | Cross-repo documentation and config consistency audit |
+| **cm-docs-sync** | Cross-repo documentation, config, and skill template consistency audit |
 
 ### Bash Scripts (7)
 

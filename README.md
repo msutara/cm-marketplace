@@ -35,12 +35,12 @@ claude plugin install cm-dev-tools@cm-marketplace
 | Skill | Trigger | What It Does |
 | --- | --- | --- |
 | **scaffold-plugin** | "create plugin", "new plugin" | Scaffolds a new CM plugin repo with all boilerplate |
-| **cm-fleet-review** | "fleet review", "run fleet" | 11-agent multi-model code review with mandatory checklists |
+| **cm-fleet-review** | "fleet review", "run fleet" | 5–11 agent multi-model code review with mandatory checklists |
 | **cm-pr-lifecycle** | "create pr", "pr workflow" | Full PR cycle: build → fleet → fix → commit → push → PR → merge |
-| **cm-release** | "release", "tag repos" | Cross-repo release with validation, tagging, and release notes |
+| **cm-release** | "release", "tag repos" | Multi-wave cross-repo release with go.mod sync and rich notes |
 | **cm-parity-check** | "parity check", "check parity" | TUI ↔ Web feature and security parity verification |
 | **cm-pr-comments** | "triage comments", "pr feedback" | PR comment triage, risk assessment, and thread resolution |
-| **cm-docs-sync** | "sync docs", "docs audit" | Cross-repo documentation and config consistency audit |
+| **cm-docs-sync** | "sync docs", "docs audit" | Cross-repo documentation, config, and skill template consistency audit |
 
 ### Bash Scripts (7)
 

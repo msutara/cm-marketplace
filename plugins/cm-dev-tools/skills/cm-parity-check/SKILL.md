@@ -87,15 +87,20 @@ Mark each row:
 
 ### Step 2 — Inventory Security Patterns
 
-Compare security implementations across both codebases.
+Compare security implementations across both codebases. **Discover** the
+actual function names and locations dynamically — do NOT rely on hardcoded
+references (functions get renamed/moved between releases).
 
-| Pattern | TUI Location | Web Location | What to Check |
-| --- | --- | --- | --- |
-| Input sanitization (C0 + C1 control chars) | `menu.go:sanitizeText()` | `web.go:sanitizeForDisplay()` | Implementation logic matches |
-| Body size limits | `apiclient.go:LimitReader` | `routes.go:http.MaxBytesReader` | Limit values are identical |
-| Token masking in logs | `apiclient.go` | `web.go` | Masking pattern is identical |
-| Path traversal prevention | `apiclient.go:cleanPluginPath` | `routes.go:cleanPluginPath` | Implementation logic matches |
-| Error message sanitization | `menu.go:sanitizeBody()` | `routes.go` | Coverage is identical |
+For each pattern below, `grep -rn` both repos to locate the implementation,
+then diff the logic:
+
+| Pattern | How to Find | What to Check |
+| --- | --- | --- |
+| Input sanitization (C0 + C1 control chars) | `grep -rn --include='*.go' 'sanitize\|Sanitize' .` | Implementation logic matches across repos |
+| Body size limits | `grep -rn --include='*.go' 'LimitReader\|MaxBytesReader' .` | Limit values are identical |
+| Token masking in logs | `grep -rn --include='*.go' 'mask\|Mask\|token.*log\|Token.*Log' .` | Masking pattern is identical |
+| Path traversal prevention | `grep -rn --include='*.go' 'cleanPlugin\|filepath.Clean\|path.Clean' .` | Implementation logic matches |
+| Error message sanitization | `grep -rn --include='*.go' 'sanitize.*[Bb]ody\|sanitize.*[Ee]rror' .` | Coverage is identical |
 
 For each pattern, read the actual implementation in both repos and diff the
 logic. Flag any divergence.

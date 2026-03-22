@@ -175,7 +175,7 @@ For every comment marked *full flow required*:
 2. Build — ensure no compilation errors.
 3. Test — run all tests, ensure passing.
 4. Lint — run project linters.
-5. Fleet review — invoke the `cm-fleet-review` skill (11 parallel agents with varied models).
+5. Fleet review — invoke the `cm-fleet-review` skill (5–11 parallel agents with varied models).
 6. Address any fleet findings, then re-run steps 2–5.
 7. Push to the **PR branch** (never to main).
 

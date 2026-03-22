@@ -87,7 +87,6 @@ cm-plugin-{name}/
 ├── plugin_test.go
 ├── service_test.go
 ├── routes_test.go
-├── nfpm.yaml
 ├── specs/
 │   ├── SPEC.md
 │   └── ARCHITECTURE.md
@@ -161,6 +160,11 @@ var _ plugin.Plugin = (*{Name}Plugin)(nil)
 // CONDITIONAL: include the next line only if Configurable is needed.
 var _ plugin.Configurable = (*{Name}Plugin)(nil)
 
+// version is set at build time via ldflags:
+//
+//	-X github.com/{OWNER}/cm-plugin-{name}.version=<version>
+var version = "dev"
+
 // {Name}Plugin implements plugin.Plugin for {description}.
 type {Name}Plugin struct {
 	svc *Service
@@ -184,7 +188,7 @@ func (p *{Name}Plugin) Name() string {
 }
 
 func (p *{Name}Plugin) Version() string {
-	return "0.1.0"
+	return version
 }
 
 func (p *{Name}Plugin) Description() string {
@@ -399,8 +403,8 @@ func TestPluginName(t *testing.T) {
 
 func TestPluginVersion(t *testing.T) {
 	p := New{Name}Plugin()
-	if got := p.Version(); got != "0.1.0" {
-		t.Errorf("Version() = %q, want %q", got, "0.1.0")
+	if got := p.Version(); got == "" {
+		t.Error("Version() must not be empty")
 	}
 }
 
@@ -548,7 +552,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version: "1.24"
       - name: Run golangci-lint
@@ -560,7 +564,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version: "1.24"
       - name: Run tests
@@ -586,31 +590,26 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version: "1.24"
 
-      - name: Install nfpm
-        run: go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest
+      - name: Verify build
+        run: go build ./...
 
-      - name: Build binary
-        run: |
-          VERSION=${GITHUB_REF_NAME#v}
-          GOOS=linux GOARCH=arm64 go build -ldflags="-s -w -X main.version=${VERSION}" -o dist/cm-plugin-{name} .
-
-      - name: Package .deb
-        run: |
-          VERSION=${GITHUB_REF_NAME#v}
-          envsubst < nfpm.yaml | nfpm package --packager deb --target dist/
-        env:
-          VERSION: ${{ github.ref_name }}
+      - name: Verify tests
+        run: go test ./...
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/*
           generate_release_notes: true
 ```
+
+> **Note:** Plugins are library packages compiled into the core binary — they
+> do not produce standalone binaries or `.deb` packages. The release workflow
+> only verifies the build and creates a GitHub release for the tag. The core
+> repo's release workflow handles binary packaging with ldflags for all plugins.
 
 ### 3.10 — .golangci.yml
 
@@ -689,23 +688,7 @@ formatters:
 }
 ```
 
-### 3.12 — nfpm.yaml
-
-This file configures the `.deb` package built by the release workflow.
-
-```yaml
-name: cm-plugin-{name}
-arch: "${ARCH}"
-platform: linux
-version: "${VERSION}"
-maintainer: "{OWNER}"
-description: "{description}"
-contents:
-  - src: cm-plugin-{name}
-    dst: /usr/local/bin/cm-plugin-{name}
-```
-
-### 3.13 — .gitignore
+### 3.12 — .gitignore
 
 ```txt
 # Go binaries
@@ -728,7 +711,7 @@ go.work
 go.work.sum
 ```
 
-### 3.14 — dependabot.yml
+### 3.13 — dependabot.yml
 
 Place this at `.github/dependabot.yml`.
 
@@ -747,7 +730,7 @@ updates:
     open-pull-requests-limit: 3
 ```
 
-### 3.15 — LICENSE (MIT)
+### 3.14 — LICENSE (MIT)
 
 ```txt
 MIT License
@@ -775,7 +758,7 @@ SOFTWARE.
 
 Replace `{YEAR}` with the current year at generation time.
 
-### 3.16 — README.md
+### 3.15 — README.md
 
 ````markdown
 # cm-plugin-{name}
@@ -819,7 +802,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 See [LICENSE](LICENSE) for details.
 ````
 
-### 3.17 — CONTRIBUTING.md
+### 3.16 — CONTRIBUTING.md
 
 ```markdown
 # Contributing
@@ -853,21 +836,22 @@ Thank you for your interest in contributing to the Config Manager project!
 
 ## Project Structure
 
-This project is split across multiple repositories:
+This project is split across multiple repositories. Read the full list from
+the manifest at `$CM_REPO_BASE/.cm/project.json` → `repos[]`. At minimum:
 
 - [config-manager-core](https://github.com/{OWNER}/config-manager-core) —
   core framework, plugin system, API server
 - [cm-plugin-{name}](https://github.com/{OWNER}/cm-plugin-{name}) —
   {description}
-- [config-manager-tui](https://github.com/{OWNER}/config-manager-tui) —
-  terminal UI (Bubble Tea)
+
+All other plugins, TUI, and web repos are listed in the manifest.
 
 ## Code of Conduct
 
 Be respectful and constructive. We are all here to learn and build together.
 ```
 
-### 3.18 — .github/copilot-instructions.md
+### 3.17 — .github/copilot-instructions.md
 
 ````markdown
 # Copilot Instructions
@@ -925,7 +909,7 @@ Routes are mounted under `/api/v1/plugins/{name}`.
 - Never push directly to main — always use feature branches and PRs
 ````
 
-### 3.19 — .github/PULL_REQUEST_TEMPLATE.md
+### 3.18 — .github/PULL_REQUEST_TEMPLATE.md
 
 ```markdown
 # Pull Request
@@ -957,7 +941,7 @@ Describe how this was tested.
 - [ ] No secrets or credentials committed
 ```
 
-### 3.20 — .github/ISSUE_TEMPLATE/bug_report.md
+### 3.19 — .github/ISSUE_TEMPLATE/bug_report.md
 
 ```markdown
 ---
@@ -995,7 +979,7 @@ A clear and concise description of what you expected to happen.
 Add any other context about the problem here, including logs or screenshots.
 ```
 
-### 3.21 — .github/ISSUE_TEMPLATE/feature_request.md
+### 3.20 — .github/ISSUE_TEMPLATE/feature_request.md
 
 ```markdown
 ---
@@ -1023,7 +1007,7 @@ A clear and concise description of any alternative solutions or features you've 
 Add any other context or screenshots about the feature request here.
 ```
 
-### 3.22 — .github/ISSUE_TEMPLATE/config.yml
+### 3.21 — .github/ISSUE_TEMPLATE/config.yml
 
 ```yaml
 blank_issues_enabled: true
@@ -1033,7 +1017,7 @@ contact_links:
     about: Check the README for setup and usage instructions
 ```
 
-### 3.23 — specs/SPEC.md
+### 3.22 — specs/SPEC.md
 
 ````markdown
 # {Name} Plugin Specification
@@ -1117,7 +1101,7 @@ The plugin exposes configuration via the `Configurable` interface.
 - Service methods that mutate state are guarded by a `sync.Mutex`.
 ````
 
-### 3.24 — specs/ARCHITECTURE.md
+### 3.23 — specs/ARCHITECTURE.md
 
 ````markdown
 # {Name} Plugin Architecture
@@ -1159,7 +1143,7 @@ HTTP Request
   `sync.RWMutex` in Plugin for config access.
 ````
 
-### 3.25 — docs/USAGE.md
+### 3.24 — docs/USAGE.md
 
 ````markdown
 # Usage
@@ -1262,7 +1246,7 @@ Edit `config-manager-core/cmd/cm/main.go` (sibling repo under the manifest's par
      echo "No manifest found — cd to the reference repo manually before continuing." >&2
      exit 1
    fi
-   go get github.com/{OWNER}/cm-plugin-{name}@latest
+   go get github.com/{OWNER}/cm-plugin-{name}@v0.1.0
    go mod tidy
    go build ./...
    go test ./...
@@ -1270,6 +1254,42 @@ Edit `config-manager-core/cmd/cm/main.go` (sibling repo under the manifest's par
 
 > **Do not push changes to config-manager-core yet.** The core wiring will be
 > part of a separate PR after the plugin's initial PR is merged and tagged.
+
+## Step 5.5 — Update Core Build Flags
+
+The core binary injects plugin versions at build time using ldflags. Add the
+new plugin's version flag to both the Makefile and `release.yml` in
+`config-manager-core`:
+
+**Makefile** — add to the `LDFLAGS` variable:
+
+```makefile
+LDFLAGS += -X github.com/{OWNER}/cm-plugin-{name}.version=$(CLEAN_VERSION)
+```
+
+**`.github/workflows/release.yml`** — add to the `-ldflags` string in the
+build step:
+
+```txt
+-X github.com/{OWNER}/cm-plugin-{name}.version=${VERSION}
+```
+
+Without this step, the new plugin will always report `"dev"` in production
+builds even though the `var version` variable exists.
+
+## Step 5.6 — Register in go.work
+
+Add the new plugin to the workspace file for local cross-repo development:
+
+```bash
+cd "$_base" && go work use "cm-plugin-{name}"
+```
+
+Verify:
+
+```bash
+go work sync
+```
 
 ## Step 6 — Add to GitHub Project Board
 
@@ -1293,7 +1313,7 @@ Initial plugin skeleton with:
 - Service layer with mutex-protected state
 - Unit tests (plugin, service, routes with httptest)
 - CI workflow (golangci-lint v2 + go test + markdownlint)
-- Release workflow (nfpm .deb on tag)
+- Release workflow (GitHub release on tag)
 - Specs, docs, and repository boilerplate
 
 Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
@@ -1319,7 +1339,7 @@ Initial plugin scaffold for **cm-plugin-{name}** — {description}.
 - \`routes.go\` — Chi router with endpoint handlers
 - Unit tests (\`plugin_test.go\`, \`service_test.go\`, \`routes_test.go\`)
 - CI workflow (golangci-lint v2 + go test + markdownlint)
-- Release workflow (nfpm .deb on \`v*.*.*\` tag)
+- Release workflow (GitHub release on \`v*.*.*\` tag)
 - \`specs/SPEC.md\` and \`specs/ARCHITECTURE.md\`
 - \`docs/USAGE.md\`
 - Repository boilerplate (.gitignore, dependabot, issue templates, etc.)
@@ -1340,10 +1360,15 @@ Before reporting completion, verify all of the following:
 - [ ] `go build ./...` succeeds
 - [ ] `go test ./...` passes
 - [ ] `golangci-lint run` is clean
-- [ ] CI workflow file matches the exact pattern (checkout@v6, setup-go@v5, golangci-lint-action@v9 v2.1.6, markdownlint-cli2-action@v22)
+- [ ] CI workflow file matches the exact pattern (checkout@v6, setup-go@v6, golangci-lint-action@v9 v2.1.6, markdownlint-cli2-action@v22)
+- [ ] Release workflow uses `softprops/action-gh-release@v2` (no binary build, no nfpm)
 - [ ] PR exists on branch `phase1/skeleton-and-specs`
 - [ ] Repo is on the project board
 - [ ] Core wiring import + Register() call added to `main.go` (local only, not pushed)
+- [ ] Core Makefile + release.yml ldflags updated with `-X` flag for new plugin (Step 5.5)
+- [ ] Plugin registered in `go.work` (Step 5.6)
+- [ ] `Version()` uses `var version = "dev"` pattern (not hardcoded string)
+- [ ] Branch protection configured on `main` (Step 10)
 
 ## Step 9 — Update Project Manifest
 
@@ -1359,7 +1384,13 @@ if [ -f "$_cm" ]; then
   # Only add if not already present
   if ! jq -e '.repos[] | select(.name == "cm-plugin-{name}")' "$_cm" >/dev/null 2>&1; then
     jq '.repos += [{"name": "cm-plugin-{name}", "role": "{role}"}]
-        | if .dep_order then .dep_order += ["cm-plugin-{name}"] else . end' "$_cm" \
+        | if .dep_order then
+            # Insert after plugins but before UI repos (tui/web).
+            # Find the index of the first UI repo and splice there.
+            (.dep_order | to_entries
+              | map(select(.value | test("tui|web"))) | .[0].key // length) as $idx
+            | .dep_order = (.dep_order[:$idx] + ["cm-plugin-{name}"] + .dep_order[$idx:])
+          else . end' "$_cm" \
       > "$(dirname "$_cm")/project.tmp.$$.json" \
       && mv "$(dirname "$_cm")/project.tmp.$$.json" "$_cm"
   fi
@@ -1375,6 +1406,33 @@ if [ -f "$_cm" ]; then
   jq '.' "$_cm"
 fi
 ```
+
+## Step 10 — Configure Branch Protection
+
+Set up branch protection on `main` to enforce PR workflow:
+
+```bash
+gh api -X PUT "repos/{OWNER}/cm-plugin-{name}/branches/main/protection" \
+  --input - <<'EOF'
+{
+  "required_status_checks": {
+    "strict": true,
+    "contexts": ["lint", "test", "markdownlint"]
+  },
+  "enforce_admins": false,
+  "required_pull_request_reviews": {
+    "required_approving_review_count": 1,
+    "dismiss_stale_reviews": true
+  },
+  "restrictions": null,
+  "allow_force_pushes": false,
+  "allow_deletions": false
+}
+EOF
+```
+
+> If the repo is new and has no CI runs yet, GitHub may reject status check
+> names. In that case, push a dummy commit, wait for CI to run, then re-apply.
 
 ## Rules
 

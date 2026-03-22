@@ -1,12 +1,14 @@
 ---
 name: cm-docs-sync
 description: >
-  Documentation consistency auditing across all CM repos. Scans configuration
-  files for drift, validates copilot-instructions.md accuracy, cross-references
-  specs with code, checks README freshness, and runs markdownlint. Generates a
-  unified report and optionally auto-fixes mechanical divergences.
+  Documentation and skill template consistency auditing across all CM repos.
+  Scans configuration files for drift, validates copilot-instructions.md accuracy,
+  cross-references specs with code, detects version drift in skill templates
+  (action versions, tool versions), checks README freshness, and runs markdownlint.
+  Generates a unified report and optionally auto-fixes mechanical divergences.
   USE FOR: sync docs, docs audit, check documentation, update docs,
-  docs consistency, audit docs, documentation check, verify docs, docs parity.
+  docs consistency, audit docs, documentation check, verify docs, docs parity,
+  skill template drift, skill audit.
 ---
 
 # CM Documentation Consistency Audit
@@ -96,7 +98,41 @@ For each repo's `README.md`:
 - CLI flags and environment variables match what the code registers.
 - Badge URLs are correct and resolve (CI status, Go Report Card, etc.).
 
-## Step 5 — Run markdownlint
+## Step 5 — Skill Template Drift Detection
+
+Skills in the marketplace contain **embedded templates** (CI workflows,
+`go.mod` snippets, action versions, linter configs) that must stay in sync
+with the actual configurations used by the target repos.
+
+### What to check
+
+| Skill | Template Content | Compare Against |
+| --- | --- | --- |
+| scaffold-plugin | `ci.yml` action versions (`setup-go@`, `golangci-lint-action@`, `checkout@`) | Actual `ci.yml` in any existing plugin repo |
+| scaffold-plugin | `release.yml` structure | Actual `release.yml` in any existing plugin repo |
+| scaffold-plugin | `.golangci.yml` content | Reference repo's `.golangci.yml` |
+| scaffold-plugin | `.markdownlint.json` content | Reference repo's `.markdownlint.json` |
+| scaffold-plugin | `dependabot.yml` content | Reference repo's `dependabot.yml` |
+| cm-release | Action/tool version references | Actual CI configs |
+| cm-fleet-review | Agent model names | Available models in Copilot CLI |
+
+### Procedure
+
+1. Read each skill file from `plugins/cm-dev-tools/skills/*/SKILL.md`.
+2. Extract version-pinned references (e.g., `setup-go@v6`, `golangci-lint-action@v9`,
+   `markdownlint-cli2-action@v22`, Go version `1.24`).
+3. Compare against the actual values in the reference repo's CI config.
+4. Flag any mismatch as a finding in the report.
+
+This catches the most common skill maintenance failure: skills hardcode versions
+that drift when dependabot bumps the real CI configs.
+
+> **Note:** Step 5 requires access to the `cm-marketplace` repo (or its installed
+> plugin files). If the marketplace checkout is not available as a sibling directory,
+> skip this step and note "skill template drift not checked — marketplace not found"
+> in the report.
+
+## Step 6 — Run markdownlint
 
 For each repo, execute:
 
@@ -107,7 +143,7 @@ markdownlint-cli2 "**/*.md" "#node_modules"
 
 Collect violations per repo and include them in the report.
 
-## Step 6 — Generate Report
+## Step 7 — Generate Report
 
 Produce a single markdown report with sections for every check. Use status icons to make the report scannable.
 
@@ -145,7 +181,7 @@ Generated: {timestamp}
 
 ### .github/workflows/ci.yml
 
-- ✅ All repos: same actions versions (actions/checkout@v6, actions/setup-go@v5)
+- ✅ All repos: same actions versions (actions/checkout@v6, actions/setup-go@v6)
 - ℹ️ Web repo may use additional `npm ci` step (expected)
 
 (Use actual repo names from manifest)
@@ -197,7 +233,7 @@ Generated: {timestamp}
 | Markdownlint | 4 | 1 | 0 |
 ````
 
-## Step 7 — Auto-Fix (Optional, With User Approval)
+## Step 8 — Auto-Fix (Optional, With User Approval)
 
 **Always ask the user before making any changes.**
 
