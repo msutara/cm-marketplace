@@ -1440,7 +1440,7 @@ if [ -f "$_cm" ]; then
             # Find the index of the first UI repo and splice there.
             (.dep_order
               | ((to_entries
-                  | map(select(.value | test("tui|web|ui")))
+                  | map(select(.value | test("-(tui|web)$")))
                   | .[0].key) // length)
             ) as $idx
             | .dep_order = (.dep_order[:$idx] + ["cm-plugin-{name}"] + .dep_order[$idx:])

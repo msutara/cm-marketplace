@@ -2,11 +2,11 @@
   "owner": "msutara",
   "reference_repo": "config-manager-core",
   "repos": [
-    { "name": "config-manager-core", "role": "central service" },
-    { "name": "cm-plugin-network", "role": "network config plugin" },
-    { "name": "cm-plugin-update", "role": "OS update plugin" },
-    { "name": "config-manager-tui", "role": "Bubble Tea TUI" },
-    { "name": "config-manager-web", "role": "htmx web UI" }
+    { "name": "config-manager-core", "role": "core" },
+    { "name": "cm-plugin-network", "role": "plugin" },
+    { "name": "cm-plugin-update", "role": "plugin" },
+    { "name": "config-manager-tui", "role": "tui" },
+    { "name": "config-manager-web", "role": "web" }
   ],
   "dep_order": [
     "config-manager-core",

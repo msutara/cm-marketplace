@@ -280,19 +280,23 @@ if [ ${#included_repos[@]} -eq 0 ]; then
     exit 1
 fi
 
-# Read roles from manifest: plugins are leaves, core is mid, UI is last.
+# Classify repos into tagging waves using stable signals.
+# Core = reference_repo, UI = role contains tui/web/ui, Leaf = everything else.
 leaf_repos=()
 core_repos=()
 ui_repos=()
 
 for n in "${included_repos[@]}"; do
-    role=$(jq -r --arg name "$n" '.repos[] | select(.name == $name) | .role' "$_cm")
-    case "$role" in
-        plugin|library) leaf_repos+=("$n") ;;
-        core)           core_repos+=("$n") ;;
-        tui|web|ui)     ui_repos+=("$n") ;;
-        *)              leaf_repos+=("$n") ;;  # default to leaf
-    esac
+    role_raw=$(jq -r --arg name "$n" '.repos[] | select(.name == $name) | .role // ""' "$_cm")
+    role=$(printf '%s' "$role_raw" | tr '[:upper:]' '[:lower:]')
+
+    if [[ "$n" == "$referenceRepo" ]]; then
+        core_repos+=("$n")
+    elif [[ "$role" =~ (^|[[:space:]])(tui|web|ui)($|[[:space:]]) ]] || [[ "$n" =~ -(tui|web|ui)$ ]]; then
+        ui_repos+=("$n")
+    else
+        leaf_repos+=("$n")
+    fi
 done
 
 echo "Wave 1 (leaves):  ${leaf_repos[*]}"
@@ -654,6 +658,37 @@ For the reference repo, append a downloads section:
 | AMD64 | `cm_0.5.0_amd64.deb` |
 ```
 
+### Write notes to files
+
+For each repo, write the generated release notes to a temp file that Phase 8
+will consume:
+
+```bash
+for n in "${included_repos[@]}"; do
+    notesFile="/tmp/release-notes-${n}.md"
+    # Generate the notes following the structure above, then write to file.
+    # The AI agent composing these notes should populate each section
+    # (description, what's new, categorized changelog, credits, compare link).
+    # For the reference repo, append the downloads table.
+    cat > "$notesFile" << EOF
+## $n $version
+
+{repo description from README.md or manifest}
+
+### What's New
+
+{summary paragraph}
+
+{categorized changelog sections}
+
+### Full Changelog
+
+https://github.com/$owner/$n/compare/{prevTag}...$version
+EOF
+    echo "📝 Notes written: $notesFile"
+done
+```
+
 ## Phase 8 — GitHub Release Creation
 
 Create a GitHub release for each repo using the generated notes:
@@ -661,7 +696,11 @@ Create a GitHub release for each repo using the generated notes:
 ```bash
 for n in "${included_repos[@]}"; do
     notesFile="/tmp/release-notes-${n}.md"
-    # Write rich notes to file (generated in Phase 7)
+    if [ ! -f "$notesFile" ]; then
+        echo "❌ ${n}: release notes file not found at $notesFile" >&2
+        echo "   Run Phase 7 first to generate release notes." >&2
+        exit 1
+    fi
 
     # Check if release already exists (plugin repos' release.yml may create one on tag push)
     if gh release view "$version" --repo "$owner/$n" >/dev/null 2>&1; then
