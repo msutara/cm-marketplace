@@ -48,8 +48,10 @@ log() {
 }
 logf() {
   if $JSON_OUTPUT; then
+    # shellcheck disable=SC2059
     printf "$@" >&2
   else
+    # shellcheck disable=SC2059
     printf "$@"
   fi
 }
