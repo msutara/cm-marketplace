@@ -1,8 +1,34 @@
 #!/usr/bin/env bash
 # validate-all.sh — Validate all CM repos defined in the project manifest
-# Usage: ./validate-all.sh [--skip-lint] [--skip-markdown]
+# Usage: ./validate-all.sh [--skip-lint] [--skip-markdown] [--json]
 # Intentionally omit -e: script must continue through repo failures to accumulate results
 set -uo pipefail
+
+JSON_OUTPUT=false
+PASS_ARGS=()
+for arg in "$@"; do
+  if [[ "$arg" == "--json" ]]; then
+    JSON_OUTPUT=true
+  else
+    PASS_ARGS+=("$arg")
+  fi
+done
+
+# Helper: log to stderr when in JSON mode, stdout otherwise
+log() {
+  if $JSON_OUTPUT; then
+    echo "$@" >&2
+  else
+    echo "$@"
+  fi
+}
+logf() {
+  if $JSON_OUTPUT; then
+    printf "$@" >&2
+  else
+    printf "$@"
+  fi
+}
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=lib/load-project.sh
@@ -10,31 +36,86 @@ source "$SCRIPT_DIR/lib/load-project.sh" || exit 1
 ALL_PASSED=0
 SUMMARIES=()
 
+# JSON accumulators
+_json_repo_names=()
+_json_repo_pass=()
+_passed_count=0
+_failed_count=0
+
 for repo in "${REPOS[@]}"; do
   repo_path="$REPO_BASE/$repo"
   if [ ! -d "$repo_path" ]; then
-    echo "⚠️  $repo — directory not found at $repo_path"
+    log "⚠️  $repo — directory not found at $repo_path"
     SUMMARIES+=("❌ $repo — directory not found")
     ALL_PASSED=1
+    _json_repo_names+=("$repo")
+    _json_repo_pass+=(false)
+    (( _failed_count++ )) || true
     continue
   fi
-  if "$SCRIPT_DIR/validate-repo.sh" "$repo_path" "$@"; then
-    SUMMARIES+=("✅ $repo")
+  if $JSON_OUTPUT; then
+    # Run validate-repo.sh with --json; capture stdout (JSON) separately from stderr (logs)
+    _sub_json=$("$SCRIPT_DIR/validate-repo.sh" "$repo_path" "${PASS_ARGS[@]+"${PASS_ARGS[@]}"}" --json 2>&2) && _sub_rc=0 || _sub_rc=$?
+    if [ "$_sub_rc" -eq 0 ]; then
+      SUMMARIES+=("✅ $repo")
+      _json_repo_names+=("$repo")
+      _json_repo_pass+=(true)
+      (( _passed_count++ )) || true
+    else
+      SUMMARIES+=("❌ $repo")
+      ALL_PASSED=1
+      _json_repo_names+=("$repo")
+      _json_repo_pass+=(false)
+      (( _failed_count++ )) || true
+    fi
   else
-    SUMMARIES+=("❌ $repo")
-    ALL_PASSED=1
+    if "$SCRIPT_DIR/validate-repo.sh" "$repo_path" "${PASS_ARGS[@]+"${PASS_ARGS[@]}"}"; then
+      SUMMARIES+=("✅ $repo")
+      _json_repo_names+=("$repo")
+      _json_repo_pass+=(true)
+      (( _passed_count++ )) || true
+    else
+      SUMMARIES+=("❌ $repo")
+      ALL_PASSED=1
+      _json_repo_names+=("$repo")
+      _json_repo_pass+=(false)
+      (( _failed_count++ )) || true
+    fi
   fi
-  echo ""
+  log ""
 done
 
-echo "=== SUMMARY ==="
+log "=== SUMMARY ==="
 for s in "${SUMMARIES[@]}"; do
-  echo "$s"
+  log "$s"
 done
 
 if [ "$ALL_PASSED" -eq 0 ]; then
-  printf "\n✅ Overall: ALL PASSED\n"
+  logf "\n✅ Overall: ALL PASSED\n"
 else
-  printf "\n❌ Overall: FAILURES DETECTED\n"
+  logf "\n❌ Overall: FAILURES DETECTED\n"
+fi
+
+if $JSON_OUTPUT; then
+  _total=$(( _passed_count + _failed_count ))
+  _repos_json="[]"
+  for i in "${!_json_repo_names[@]}"; do
+    _repos_json=$(printf '%s' "$_repos_json" | jq -c \
+      --arg name "${_json_repo_names[$i]}" \
+      --argjson pass "${_json_repo_pass[$i]}" \
+      '. + [{name: $name, pass: $pass}]')
+  done
+  _error_msg="null"
+  if [ "$ALL_PASSED" -ne 0 ]; then
+    _error_msg="\"$_failed_count of $_total repos failed validation\""
+  fi
+  jq -nc \
+    --argjson ok "$([ "$ALL_PASSED" -eq 0 ] && echo true || echo false)" \
+    --argjson repos "$_repos_json" \
+    --argjson passed "$_passed_count" \
+    --argjson failed "$_failed_count" \
+    --argjson total "$_total" \
+    --argjson error "$_error_msg" \
+    '{ok: $ok, tool: "validate-all", data: {repos: $repos, passed: $passed, failed: $failed, total: $total}, error: $error}'
 fi
 exit "$ALL_PASSED"
