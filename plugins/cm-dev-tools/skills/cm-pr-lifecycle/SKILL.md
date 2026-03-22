@@ -200,18 +200,11 @@ Closes #{issue_number}
 
 ### Phase 8 — Project Board
 
-Add the PR to the GitHub project and set its status to `Review` (the status key
-from `.cm/project.json` — `project-board.sh` resolves the option ID internally):
+Add the PR to the GitHub project and update its status to the review state
+(`project-board.sh` resolves the status key to the option ID via `.cm/project.json`):
 
 ```bash
-gh project item-add {PROJECT_NUMBER} --owner {OWNER} --url {PR_URL}
-```
-
-Then update the item status to the review status defined in `.cm/project.json`
-(from the marketplace repo root):
-
-```bash
-./plugins/cm-dev-tools/scripts/project-board.sh --url {PR_URL} --status {REVIEW_STATUS}
+./plugins/cm-dev-tools/scripts/project-board.sh --url {PR_URL} --status Review
 ```
 
 ### Phase 9 — Monitor CI
@@ -269,7 +262,8 @@ gh pr merge {PR_NUMBER} --squash --delete-branch
 Post-merge cleanup:
 
 ```bash
-# Update project board status to Done (use project-board.sh --status Done)
+# Update project board status to Done
+./plugins/cm-dev-tools/scripts/project-board.sh --url {PR_URL} --status Done
 
 # Prune stale remote refs
 git remote update origin --prune

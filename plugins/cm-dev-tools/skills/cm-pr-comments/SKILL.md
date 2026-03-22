@@ -206,16 +206,10 @@ If a comment cannot be addressed in this PR cycle:
 
 1. Create a GitHub issue tracking the deferred work.
 2. Add the issue to the project board and set its status to the backlog/initial
-   status defined in `.cm/project.json`.
+   status defined in `.cm/project.json`:
 
    ```bash
-   gh project item-add {PROJECT_NUMBER} --owner {OWNER} --url {ISSUE_URL}
-   ```
-
-   Then set the status (from the marketplace repo root):
-
-   ```bash
-   ./plugins/cm-dev-tools/scripts/project-board.sh --url {ISSUE_URL} --status {BACKLOG_STATUS}
+   ./plugins/cm-dev-tools/scripts/project-board.sh --url {ISSUE_URL} --status Backlog
    ```
 
 3. Resolve the thread with a reference to the new issue.
