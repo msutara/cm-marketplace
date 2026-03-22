@@ -396,10 +396,15 @@ for n in "${core_repos[@]}"; do
     git commit -m "release: bump plugin dependencies to $version"
     git push origin "release/$version"
 
+    _pr_body="$(mktemp)"
+    printf 'Automated go.mod bump for release %s.\n' "$version" > "$_pr_body"
+
     gh pr create \
         --title "release: bump deps to $version" \
-        --body-file <(echo "Automated go.mod bump for release $version.") \
+        --body-file "$_pr_body" \
         --base main
+
+    rm -f "$_pr_body"
 
     echo "⏳ Waiting for CI on $n..."
     # Wait for CI, then merge synchronously (--auto may not be enabled)
@@ -499,10 +504,15 @@ for n in "${ui_repos[@]}"; do
     git commit -m "release: bump core + plugin dependencies to $version"
     git push origin "release/$version"
 
+    _pr_body="$(mktemp)"
+    printf 'Automated go.mod bump for release %s.\n' "$version" > "$_pr_body"
+
     gh pr create \
         --title "release: bump deps to $version" \
-        --body-file <(echo "Automated go.mod bump for release $version.") \
+        --body-file "$_pr_body" \
         --base main
+
+    rm -f "$_pr_body"
 
     echo "⏳ Waiting for CI on $n..."
     gh pr checks --watch
@@ -653,11 +663,20 @@ for n in "${included_repos[@]}"; do
     notesFile="/tmp/release-notes-${n}.md"
     # Write rich notes to file (generated in Phase 7)
 
-    gh release create "$version" \
-        --repo "$owner/$n" \
-        --title "$n $version" \
-        --notes-file "$notesFile"
-    echo "📦 Release created: https://github.com/$owner/$n/releases/tag/$version"
+    # Check if release already exists (plugin repos' release.yml may create one on tag push)
+    if gh release view "$version" --repo "$owner/$n" >/dev/null 2>&1; then
+        echo "📦 Release already exists for $n $version — updating notes"
+        gh release edit "$version" \
+            --repo "$owner/$n" \
+            --title "$n $version" \
+            --notes-file "$notesFile"
+    else
+        gh release create "$version" \
+            --repo "$owner/$n" \
+            --title "$n $version" \
+            --notes-file "$notesFile"
+    fi
+    echo "📦 Release ready: https://github.com/$owner/$n/releases/tag/$version"
 done
 ```
 
@@ -715,7 +734,9 @@ for n in "${included_repos[@]}"; do
             --json assets --jq '.assets[].name')
         debCount=$(echo "$assets" | grep -c '\.deb$' || true)
         if [[ "$debCount" -lt 3 ]]; then
-            echo "⚠️ ${n}: expected 3 .deb artifacts, found $debCount"
+            echo "❌ ${n}: expected 3 .deb artifacts for reference repo, found $debCount" >&2
+            echo "   This indicates an incomplete reference-repo build. Aborting release verification." >&2
+            exit 1
         fi
     fi
 done
