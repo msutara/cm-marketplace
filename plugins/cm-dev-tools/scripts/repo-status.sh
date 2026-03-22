@@ -14,8 +14,17 @@ for arg in "$@"; do
   fi
 done
 set -- "${ARGS[@]+"${ARGS[@]}"}"
+
 if $JSON_OUTPUT && ! command -v jq &>/dev/null; then
   printf '{"ok":false,"tool":"repo-status","data":null,"error":"jq is required for --json output but is not installed"}\n'
+  exit 1
+fi
+
+if [ "$#" -gt 1 ]; then
+  echo "Error: too many positional arguments. Usage: repo-status.sh [--json] [repo-name]" >&2
+  if $JSON_OUTPUT; then
+    jq -nc '{ok: false, tool: "repo-status", data: null, error: "too many positional arguments"}'
+  fi
   exit 1
 fi
 

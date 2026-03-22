@@ -49,15 +49,15 @@ const BASH = resolveBash();
 //   3. Fallback: ~/repo/.cm/project.json
 
 function detectRepoBase() {
-  // 1. Explicit env var
+  // 1. Explicit env var — fail fast if set but invalid (matches load-project.sh behavior)
   if (process.env.CM_REPO_BASE) {
     if (existsSync(join(process.env.CM_REPO_BASE, ".cm", "project.json"))) {
       return process.env.CM_REPO_BASE;
     }
-    log(
-      `CM_REPO_BASE set to ${process.env.CM_REPO_BASE} but .cm/project.json not found there; unsetting to allow auto-detection`,
+    throw new Error(
+      `CM_REPO_BASE is set to ${process.env.CM_REPO_BASE} but .cm/project.json was not found there. ` +
+        "Fix the path or unset CM_REPO_BASE to allow auto-detection.",
     );
-    delete process.env.CM_REPO_BASE;
   }
 
   // 2. Walk up from cwd

@@ -140,7 +140,7 @@ for repo in "${REPOS[@]}"; do
 
   log "  ✅ $repo updated to ${SOURCE_MODULE}@${VERSION}"
   UPDATED+=("$repo")
-  _json_repos+=("$(jq -nc --arg name "$repo" '{name: $name, updated: true}')")
+  _json_repos+=("$(jq -nc --arg name "$repo" '{name: $name, updated: true, skipped: false, reason: null}')")
   popd > /dev/null
 done
 

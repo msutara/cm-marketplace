@@ -64,7 +64,7 @@ for repo in "${REPOS[@]}"; do
   fi
   if $JSON_OUTPUT; then
     # Run validate-repo.sh with --json; capture stdout (JSON) separately from stderr (logs)
-    _sub_json=$("$SCRIPT_DIR/validate-repo.sh" "$repo_path" "${PASS_ARGS[@]+"${PASS_ARGS[@]}"}" --json 2>&2) && _sub_rc=0 || _sub_rc=$?
+    _sub_json=$("$SCRIPT_DIR/validate-repo.sh" "$repo_path" "${PASS_ARGS[@]+"${PASS_ARGS[@]}"}" --json) && _sub_rc=0 || _sub_rc=$?
     if [ "$_sub_rc" -eq 0 ]; then
       SUMMARIES+=("✅ $repo")
       _json_repo_names+=("$repo")

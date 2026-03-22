@@ -75,7 +75,7 @@ logf() {
 if ! [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   echo "Error: Version must be semver format: v{MAJOR}.{MINOR}.{PATCH}" >&2
   if $JSON_OUTPUT; then
-    jq -nc --arg v "$VERSION" '{ok: false, tool: "tag-all", data: {version: $v, dryRun: false, repos: []}, error: "Version must be semver format: v{MAJOR}.{MINOR}.{PATCH}"}'
+    jq -nc --arg v "$VERSION" --argjson dryRun "$DRY_RUN" '{ok: false, tool: "tag-all", data: {version: $v, dryRun: $dryRun, repos: []}, error: "Version must be semver format: v{MAJOR}.{MINOR}.{PATCH}"}'
   fi
   exit 1
 fi
