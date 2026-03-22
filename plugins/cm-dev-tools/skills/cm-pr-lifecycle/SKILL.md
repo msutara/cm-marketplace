@@ -200,8 +200,10 @@ Closes #{issue_number}
 
 ### Phase 8 — Project Board
 
-Add the PR to the GitHub project and update its status to the review state
-(`project-board.sh` resolves the status key to the option ID via `.cm/project.json`):
+Add the PR to the GitHub project and set its status (from the marketplace
+repo root). The `--status` value must match a key in
+`.project_board.statuses` from `.cm/project.json` (defaults: `Backlog`,
+`InProgress`, `Review`, `Done`):
 
 ```bash
 ./plugins/cm-dev-tools/scripts/project-board.sh --url {PR_URL} --status Review
@@ -262,7 +264,8 @@ gh pr merge {PR_NUMBER} --squash --delete-branch
 Post-merge cleanup:
 
 ```bash
-# Update project board status to Done
+# Update project board status (from the marketplace repo root;
+# key must match .cm/project.json statuses)
 ./plugins/cm-dev-tools/scripts/project-board.sh --url {PR_URL} --status Done
 
 # Prune stale remote refs

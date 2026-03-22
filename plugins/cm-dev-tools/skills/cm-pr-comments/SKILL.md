@@ -205,8 +205,10 @@ gh api graphql -f query="mutation {
 If a comment cannot be addressed in this PR cycle:
 
 1. Create a GitHub issue tracking the deferred work.
-2. Add the issue to the project board and set its status to the backlog/initial
-   status defined in `.cm/project.json`:
+2. Add the issue to the project board (from the marketplace repo root).
+   The `--status` value must match a key in `.project_board.statuses`
+   from `.cm/project.json` (defaults: `Backlog`, `InProgress`, `Review`,
+   `Done`):
 
    ```bash
    ./plugins/cm-dev-tools/scripts/project-board.sh --url {ISSUE_URL} --status Backlog
