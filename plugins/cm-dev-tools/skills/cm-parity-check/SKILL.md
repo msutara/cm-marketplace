@@ -15,9 +15,9 @@ description: >
 
 The Config Manager project enforces a **permanent parity rule**:
 
-> The UI repos in `.cm/project.json` (those whose `.role` contains "TUI" or
-> "web UI" — roles are user-defined strings matched by substring) MUST be kept
-> functionally and test-wise identical.
+> The UI repos in `.cm/project.json` (those whose `.role` is exactly "tui" or
+> "web" — case-insensitive, anchored match) MUST be kept functionally and
+> test-wise identical.
 >
 > 1. Every feature implemented in one UI must exist in the other.
 > 2. Every security pattern (sanitization, body limits, token masking, input
