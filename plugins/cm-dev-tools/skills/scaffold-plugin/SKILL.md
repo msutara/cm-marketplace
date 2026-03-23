@@ -156,7 +156,11 @@ _cm="${CM_REPO_BASE:+$CM_REPO_BASE/.cm/project.json}"
 if [ -f "$_cm" ]; then
   _base="$(cd "$(dirname "$_cm")/.." && pwd)"
   [ -n "$_base" ] || { echo "❌ Failed to resolve workspace root from $_cm" >&2; exit 1; }
-  _ref="$(jq -r '.reference_repo' "$_cm")"
+  _ref="$(jq -r '.reference_repo // .repos[0].name' "$_cm")"
+  if [ -z "$_ref" ] || [ "$_ref" = "null" ]; then
+    echo "❌ reference_repo is not set in manifest and no repos[0].name fallback available." >&2
+    exit 1
+  fi
   _core="${_base}/${_ref}"
 else
   echo "❌ Cannot find core repo — set CM_REPO_BASE or ensure .cm/project.json exists." >&2
@@ -1272,7 +1276,11 @@ Edit `{reference_repo}/cmd/cm/main.go` (sibling repo under the manifest's parent
    if [ -f "$_cm" ]; then
      _base="$(cd "$(dirname "$_cm")/.." && pwd)"
      [ -n "$_base" ] || { echo "❌ Failed to resolve workspace root from $_cm" >&2; exit 1; }
-     _ref="$(jq -r '.reference_repo' "$_cm")"
+     _ref="$(jq -r '.reference_repo // .repos[0].name' "$_cm")"
+     if [ -z "$_ref" ] || [ "$_ref" = "null" ]; then
+       echo "❌ reference_repo is not set in manifest." >&2
+       exit 1
+     fi
      cd "${_base}/${_ref}" || { echo "❌ Failed to cd into ${_ref}" >&2; exit 1; }
    else
      echo "❌ No manifest found — cd to the reference repo manually before continuing." >&2
@@ -1443,7 +1451,7 @@ if [ -f "$_cm" ]; then
   # Only add if not already present
   if ! jq -e '.repos[] | select(.name == "cm-plugin-{name}")' "$_cm" >/dev/null 2>&1; then
     _tmp="$(mktemp)"
-    jq '.repos += [{"name": "cm-plugin-{name}", "role": "{role}"}]
+    jq '.repos += [{"name": "cm-plugin-{name}", "role": "plugin"}]
         | if .dep_order then
             # Insert after plugins but before UI repos.
             # Uses dep_order name suffix convention: names ending in -tui or -web.

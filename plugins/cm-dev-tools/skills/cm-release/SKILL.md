@@ -83,7 +83,11 @@ _cm="${CM_REPO_BASE:+$CM_REPO_BASE/.cm/project.json}"
 [ -f "$_cm" ] || _cm="../.cm/project.json"            # parent dir
 [ -f "$_cm" ] || _cm="$HOME/repo/.cm/project.json"   # fallback
 if [ -f "$_cm" ]; then
-  referenceRepo=$(jq -r '.reference_repo' "$_cm")
+  referenceRepo=$(jq -r '.reference_repo // .repos[0].name' "$_cm")
+  if [ -z "$referenceRepo" ] || [ "$referenceRepo" = "null" ]; then
+    echo "❌ reference_repo is not set in manifest and no repos[0].name fallback available." >&2
+    exit 1
+  fi
   latestTag=$(git -C "$(dirname "$(dirname "$_cm")")/${referenceRepo}" describe --tags --abbrev=0 2>/dev/null)
 else
   echo "❌ No manifest found — ask the user for reference repo and latest tag." >&2
@@ -142,7 +146,7 @@ if [ -f "$_cm" ]; then
   [ -n "$base" ] || { echo "❌ Failed to resolve workspace root from $_cm" >&2; exit 1; }
   repos=($(jq -r 'if (has("dep_order") and (.dep_order | length > 0)) then .dep_order[] else .repos[].name end' "$_cm"))
   owner="$(jq -r '.owner // empty' "$_cm")"
-  referenceRepo="$(jq -r '.reference_repo // empty' "$_cm")"
+  referenceRepo="$(jq -r '.reference_repo // .repos[0].name // empty' "$_cm")"
   if [ -z "$owner" ] || [ -z "$referenceRepo" ]; then
     echo "❌ Manifest $_cm is missing required fields: owner and/or reference_repo." >&2
     exit 1
