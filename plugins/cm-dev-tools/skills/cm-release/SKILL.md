@@ -292,8 +292,8 @@ included_repos=()  # ← populate from Phase 2 scope decisions
 
 # The reference repo is ALWAYS included — it's the product umbrella.
 # Its release notes describe ecosystem-wide changes even when its own code is unchanged.
-# This MUST run before the empty-scope check so that an all-chore release still produces
-# a core tag with ecosystem-wide notes.
+# This auto-include must run before the core-only confirmation below so that an all-chore
+# release still produces a core tag with ecosystem-wide notes.
 if [ -z "${referenceRepo:-}" ]; then
     echo "❌ \$referenceRepo is unset — manifest may be misconfigured." >&2; exit 1
 fi
