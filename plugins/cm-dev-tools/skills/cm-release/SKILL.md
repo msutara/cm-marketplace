@@ -398,6 +398,13 @@ for n in "${core_repos[@]}"; do
 
     # Commit and PR
     git add go.mod go.sum
+    if git diff --cached --quiet -- go.mod go.sum; then
+        echo "ℹ️ No go.mod/go.sum changes for $n; skipping dependency PR."
+        git checkout main
+        git branch -D "release/$version"
+        popd > /dev/null
+        continue
+    fi
     git commit -m "release: bump plugin dependencies to $version"
     git push origin "release/$version"
 
@@ -506,6 +513,13 @@ for n in "${ui_repos[@]}"; do
     GOWORK=off go test ./... -count=1
 
     git add go.mod go.sum
+    if git diff --cached --quiet -- go.mod go.sum; then
+        echo "ℹ️ No go.mod/go.sum changes for $n; skipping dependency PR."
+        git checkout main
+        git branch -D "release/$version"
+        popd > /dev/null
+        continue
+    fi
     git commit -m "release: bump core + plugin dependencies to $version"
     git push origin "release/$version"
 

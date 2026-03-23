@@ -1445,8 +1445,8 @@ if [ -f "$_cm" ]; then
     _tmp="$(mktemp)"
     jq '.repos += [{"name": "cm-plugin-{name}", "role": "{role}"}]
         | if .dep_order then
-            # Insert after plugins but before UI repos (tui/web).
-            # Find the index of the first UI repo and splice there.
+            # Insert after plugins but before UI repos.
+            # Uses dep_order name suffix convention: names ending in -tui or -web.
             (.dep_order
               | ((to_entries
                   | map(select(.value | test("-(tui|web)$")))

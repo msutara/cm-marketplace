@@ -2,8 +2,8 @@
 name: cm-parity-check
 description: >
   Verify functional, security, test, and documentation parity between
-  the UI repos in .cm/project.json (repos whose role matches "tui" or
-  "web" — case-insensitive matching via jq ascii_downcase + regex).
+  the UI repos in .cm/project.json (repos whose role is exactly "tui" or
+  "web" — case-insensitive, anchored regex via jq ascii_downcase).
   Reports gaps without making changes.
   USE FOR: parity check, check parity, tui web sync, compare tui web,
   parity audit, ui parity, check ui parity, verify parity, parity report.
@@ -43,7 +43,7 @@ _cm="${CM_REPO_BASE:+$CM_REPO_BASE/.cm/project.json}"
 [ -f "$_cm" ] || _cm="../.cm/project.json"            # parent dir
 [ -f "$_cm" ] || _cm="$HOME/repo/.cm/project.json"   # fallback
 if [ -f "$_cm" ]; then
-  jq '.repos[] | select((.role // "") | ascii_downcase | test("tui|web"))' "$_cm"
+  jq '.repos[] | select((.role // "") | ascii_downcase | test("^(tui|web)$"))' "$_cm"
 else
   echo "No manifest found — ask the user for owner, repo names, and other context."
 fi
