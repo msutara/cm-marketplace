@@ -318,8 +318,10 @@ fi
 
 # Compute per-repo versions from each repo's last tag + bump type.
 # Each repo maintains its own independent version timeline.
+# Fetch tags first to ensure local clone reflects remote state.
 declare -A repo_version
 for n in "${included_repos[@]}"; do
+    git -C "$base/$n" fetch --tags --quiet 2>/dev/null || true
     lastTag=$(git -C "$base/$n" describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
     # Validate tag is semver (vMAJOR.MINOR.PATCH)
     if ! echo "$lastTag" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
@@ -990,28 +992,31 @@ If a release is partially complete or incorrect:
    owner=$(jq -r '.owner // empty' "$_cm")
    all_repos=($(jq -r '.repos[].name' "$_cm"))
 
-   # Provide the bump type used in the failed release (patch/minor/major).
-   : "${RELEASE_BUMP:?Set RELEASE_BUMP to the bump type used (patch, minor, or major)}"
+   # Provide the expected release tag(s) for the failed release.
+   # Option A — single tag for all repos:  RELEASE_TAG="v0.4.6"
+   # Option B — per-repo tags:  RELEASE_TAGS="cm-plugin-network=v0.4.5 config-manager-core=v0.4.6"
 
    for n in "${all_repos[@]}"; do
-       # Use REMOTE tags only — local tags from the failed release would corrupt the arithmetic.
-       lastTag=$(git -C "$base/$n" ls-remote --tags --sort=-v:refname origin 'refs/tags/v*' \
-           | grep -v '\^{}' | head -1 | sed 's|.*refs/tags/||' || echo "v0.0.0")
-       if [ -z "$lastTag" ]; then lastTag="v0.0.0"; fi
-       # Derive what the release WOULD have tagged this repo
-       major=$(echo "$lastTag" | sed 's/^v//' | cut -d. -f1)
-       minor=$(echo "$lastTag" | sed 's/^v//' | cut -d. -f2)
-       patch=$(echo "$lastTag" | sed 's/^v//' | cut -d. -f3)
-       case "$RELEASE_BUMP" in
-           major) expected="v$((major + 1)).0.0" ;;
-           minor) expected="v${major}.$((minor + 1)).0" ;;
-           patch) expected="v${major}.${minor}.$((patch + 1))" ;;
-       esac
+       # Check for the expected release tag directly on the remote.
+       # The operator provides RELEASE_TAGS as a space-separated "repo=tag" map,
+       # or a single tag if all repos share the same version.
+       # Example: RELEASE_TAGS="cm-plugin-network=v0.4.5 config-manager-core=v0.4.6"
+       #      or: RELEASE_TAG="v0.4.6" (single tag for all repos)
+       if [ -n "${RELEASE_TAGS:-}" ]; then
+           expected=$(echo "$RELEASE_TAGS" | tr ' ' '\n' | grep "^${n}=" | cut -d= -f2)
+           [ -z "$expected" ] && expected="${RELEASE_TAG:-}"
+       else
+           expected="${RELEASE_TAG:?Set RELEASE_TAG or RELEASE_TAGS (repo=tag pairs)}"
+       fi
+       if [ -z "$expected" ]; then
+           echo "   $n: no expected tag provided, skipping"
+           continue
+       fi
        tagged=$(git -C "$base/$n" ls-remote --tags origin "refs/tags/$expected" 2>/dev/null || true)
        if [ -n "$tagged" ]; then
-           echo "🏷️  $n: tagged ($expected, from $lastTag)"
+           echo "🏷️  $n: tagged ($expected)"
        else
-           echo "   $n: not tagged with $expected (last: $lastTag)"
+           echo "   $n: not tagged with $expected"
        fi
    done
    ```

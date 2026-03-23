@@ -1,5 +1,25 @@
 # CM Marketplace — Release History
 
+## [1.1.5] — 2026-03-23
+
+### Fixed
+
+- **cm-release skill — per-repo versioning (Gap #13, #14)**:
+  - Core (`reference_repo`) is now always included as product umbrella even with
+    no feat/fix commits — ensures every release has ecosystem-wide notes
+  - Each repo maintains its own independent version timeline via `repo_version`
+    associative array (no more single shared version)
+  - Added `git fetch --tags` before version computation to avoid stale local tags
+  - Added semver format validation on `lastTag` before arithmetic
+  - Added `$bump` type validation with default error case
+  - Added `$referenceRepo` empty guard before auto-include block
+  - Core-only release now prompts for user confirmation instead of aborting
+  - Recovery snippet is fresh-session safe: uses Phase 1 manifest discovery,
+    operator-provided explicit tags (no bump arithmetic), and remote-only checks
+  - Fixed downloads table prefix (`cm_` → `config-manager_`) and defined
+    `{VERSION}` expansion
+  - Fixed Go proxy curl placeholder for recovery context
+
 ## [1.1.4] — 2026-03-23
 
 ### Fixed
