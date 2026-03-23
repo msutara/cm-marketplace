@@ -44,15 +44,20 @@ function depsInstalled() {
 
 if (!depsInstalled()) {
   log("Dependencies not found — installing automatically...");
+  const hasLockfile = existsSync(resolve(toolsDir, "package-lock.json"));
+  const cmd = hasLockfile ? "npm ci --omit=dev" : "npm install --omit=dev";
   try {
-    const hasLockfile = existsSync(resolve(toolsDir, "package-lock.json"));
-    const cmd = hasLockfile ? "npm ci --omit=dev" : "npm install --omit=dev";
     execSync(cmd, {
       cwd: toolsDir,
       stdio: ["ignore", process.stderr, process.stderr],
     });
-  } catch {
-    log(`Auto-install failed. Install manually:\n  cd ${toolsDir} && npm install --omit=dev\n`);
+  } catch (err) {
+    const exitCode = typeof err?.status === "number" ? err.status : err?.code;
+    log(
+      `Auto-install failed running "${cmd}"${exitCode !== undefined ? ` (exit code: ${exitCode}).` : "."}`,
+    );
+    if (err?.message) log(`Error: ${err.message}`);
+    log(`Install manually:\n  cd ${toolsDir} && ${cmd}\n`);
     process.exit(1);
   }
 
