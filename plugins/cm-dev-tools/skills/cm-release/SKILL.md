@@ -302,9 +302,18 @@ if ! printf '%s\n' "${included_repos[@]}" | grep -Fqx "$referenceRepo" 2>/dev/nu
     echo "ℹ️  $referenceRepo auto-included as product umbrella (no own changes this cycle)"
 fi
 
-if [ ${#included_repos[@]} -eq 0 ]; then
-    echo "❌ No repos included in release scope. Aborting." >&2
-    exit 1
+# At this point the reference repo is guaranteed to be in the scope.
+# If the scope is *only* the reference repo, confirm core-only release.
+if [ ${#included_repos[@]} -eq 1 ] && [ "${included_repos[0]}" = "$referenceRepo" ]; then
+    printf '⚠️  Release scope is core-only (%s). Proceed? [y/N]: ' "$referenceRepo" >&2
+    read -r confirm
+    case "$confirm" in
+        [Yy]|[Yy][Ee][Ss]) ;;
+        *)
+            echo "Aborting core-only release by user choice." >&2
+            exit 1
+            ;;
+    esac
 fi
 
 # Compute per-repo versions from each repo's last tag + bump type.
@@ -968,31 +977,17 @@ If a release is partially complete or incorrect:
    tooling:
 
    ```bash
-   # Re-read manifest for recovery (fresh session safe)
-   # Uses same discovery order: $CM_REPO_BASE → walk up from cwd → $HOME/repo
-   base=""
-   if [[ -n "${CM_REPO_BASE:-}" && -f "$CM_REPO_BASE/.cm/project.json" ]]; then
-       base="$CM_REPO_BASE"
-   else
-       dir="$PWD"
-       while [[ "$dir" != "/" ]]; do
-           if [[ -f "$dir/.cm/project.json" ]]; then
-               base="$dir"
-               break
-           fi
-           dir="$(dirname "$dir")"
-       done
-   fi
-   if [[ -z "$base" && -d "$HOME/repo" && -f "$HOME/repo/.cm/project.json" ]]; then
-       base="$HOME/repo"
-   fi
-   if [[ -z "$base" ]]; then
+   # Re-read manifest for recovery (fresh session safe).
+   # Uses same discovery as Phase 1: $CM_REPO_BASE → cwd → parent → $HOME/repo
+   _cm="${CM_REPO_BASE:+$CM_REPO_BASE/.cm/project.json}"
+   [ -f "${_cm:-}" ] || _cm=".cm/project.json"
+   [ -f "$_cm" ] || _cm="../.cm/project.json"
+   [ -f "$_cm" ] || _cm="$HOME/repo/.cm/project.json"
+   if [ ! -f "$_cm" ]; then
        echo "❌ Unable to locate .cm/project.json" >&2; exit 1
    fi
-
-   _cm="$base/.cm/project.json"
-   owner=$(jq -r '.owner' "$_cm")
-   referenceRepo=$(jq -r '.reference_repo' "$_cm")
+   base="$(cd "$(dirname "$_cm")/.." && pwd)"
+   owner=$(jq -r '.owner // empty' "$_cm")
    all_repos=($(jq -r '.repos[].name' "$_cm"))
 
    # Provide the bump type used in the failed release (patch/minor/major).
