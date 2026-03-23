@@ -43,7 +43,7 @@ Compare files that MUST be identical (or structurally identical) across all repo
 
 | File | Must Match | Notes |
 | --- | --- | --- |
-| `.markdownlint.json` | Byte-identical | Full 28-rule config (see `config-manager-core/.markdownlint.json` as reference) |
+| `.markdownlint.json` | Byte-identical | Full 28-rule config (see `${reference_repo}/.markdownlint.json` as reference) |
 | `.golangci.yml` | Structurally identical | v2 format; repo-specific linter exclusions are acceptable |
 | `.github/dependabot.yml` | Structurally identical | gomod + github-actions, weekly schedule |
 | `.github/workflows/ci.yml` | Pattern-matching | Same actions versions, same steps; repo-specific test commands expected |
@@ -137,7 +137,7 @@ that drift when dependabot bumps the real CI configs.
 For each repo, execute:
 
 ```bash
-cd "{repo_path}" || { echo "Failed to cd into {repo_path}"; exit 1; }
+cd "{repo_path}" || { echo "❌ Failed to cd into {repo_path}" >&2; exit 1; }
 markdownlint-cli2 "**/*.md" "#node_modules"
 ```
 

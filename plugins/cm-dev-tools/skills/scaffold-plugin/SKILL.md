@@ -79,7 +79,7 @@ Do **not** proceed until `gh auth status` shows the correct account.
 
 ```bash
 gh repo create {OWNER}/cm-plugin-{name} --public --clone --description "{description}"
-cd cm-plugin-{name} || { echo "Failed to cd into cm-plugin-{name}"; exit 1; }
+cd cm-plugin-{name} || { echo "❌ Failed to cd into cm-plugin-{name}" >&2; exit 1; }
 git checkout -b phase1/skeleton-and-specs
 ```
 
@@ -141,34 +141,35 @@ go 1.24.0
 
 require github.com/go-chi/chi/v5 v5.2.5
 
-require github.com/{OWNER}/config-manager-core v0.0.0
+require github.com/{OWNER}/{reference_repo} v0.0.0
 ```
 
 Before running `go mod tidy`, replace the placeholder `v0.0.0` with the latest
-tag from `config-manager-core` (the core dependency all plugins import):
+tag from the reference repo (the core dependency all plugins import):
 
 ```bash
-# Resolve core repo path via CM_REPO_BASE or manifest discovery
-if [ -n "${CM_REPO_BASE:-}" ]; then
-  _core="$CM_REPO_BASE/config-manager-core"
+# Resolve core repo path via manifest discovery
+_cm="${CM_REPO_BASE:+$CM_REPO_BASE/.cm/project.json}"
+[ -f "${_cm:-}" ] || _cm=".cm/project.json"          # cwd
+[ -f "$_cm" ] || _cm="../.cm/project.json"            # parent dir
+[ -f "$_cm" ] || _cm="$HOME/repo/.cm/project.json"   # fallback
+if [ -f "$_cm" ]; then
+  _base="$(cd "$(dirname "$_cm")/.." && pwd)"
+  [ -n "$_base" ] || { echo "❌ Failed to resolve workspace root from $_cm" >&2; exit 1; }
+  _ref="$(jq -r '.reference_repo' "$_cm")"
+  _core="${_base}/${_ref}"
 else
-  _cm="${PWD}/../.cm/project.json"
-  [ -f "$_cm" ] || _cm="$HOME/repo/.cm/project.json"
-  if [ -f "$_cm" ]; then
-    _core="$(cd "$(dirname "$_cm")/.." && pwd)/config-manager-core"
-  else
-    echo "Cannot find core repo — set CM_REPO_BASE or ensure .cm/project.json exists." >&2
-    exit 1
-  fi
+  echo "❌ Cannot find core repo — set CM_REPO_BASE or ensure .cm/project.json exists." >&2
+  exit 1
 fi
 _ver=$(git -C "$_core" describe --tags --abbrev=0)
-sed -i.bak "s|config-manager-core v0.0.0|config-manager-core $_ver|" go.mod && rm -f go.mod.bak
+sed -i.bak "s|${_ref} v0.0.0|${_ref} $_ver|" go.mod && rm -f go.mod.bak
 ```
 
 After writing the file, run:
 
 ```bash
-go mod tidy
+GOWORK=off go mod tidy
 ```
 
 ### 3.2 — plugin.go
@@ -181,7 +182,7 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/{OWNER}/config-manager-core/plugin"
+	"github.com/{OWNER}/{reference_repo}/plugin"
 )
 
 // Compile-time interface checks.
@@ -406,7 +407,7 @@ package {pkg}
 import (
 	"testing"
 
-	"github.com/{OWNER}/config-manager-core/plugin"
+	"github.com/{OWNER}/{reference_repo}/plugin"
 )
 
 func TestPluginInterface(t *testing.T) {
@@ -793,7 +794,7 @@ Replace `{YEAR}` with the current year at generation time.
 # cm-plugin-{name}
 
 {description} plugin for
-[Config Manager](https://github.com/{OWNER}/config-manager-core). Designed for
+[Config Manager](https://github.com/{OWNER}/{reference_repo}). Designed for
 headless Debian-based nodes (Raspbian Bookworm ARM64, Debian Bullseye slim).
 
 ## Features
@@ -813,10 +814,10 @@ headless Debian-based nodes (Raspbian Bookworm ARM64, Debian Bullseye slim).
 
 ```bash
 # lint
-golangci-lint run
+GOWORK=off golangci-lint run
 
 # test
-go test ./...
+GOWORK=off go test ./...
 ```
 
 CI runs automatically on push/PR to `main` via GitHub Actions
@@ -843,8 +844,8 @@ Thank you for your interest in contributing to the Config Manager project!
 1. Fork the repository
 2. Create a feature branch from `main`
 3. Make your changes
-4. Run tests: `go test ./...`
-5. Run linter: `golangci-lint run`
+4. Run tests: `GOWORK=off go test ./...`
+5. Run linter: `GOWORK=off golangci-lint run`
 6. Submit a pull request
 
 ## Guidelines
@@ -868,7 +869,7 @@ Thank you for your interest in contributing to the Config Manager project!
 This project is split across multiple repositories. Read the full list from
 the manifest at `$CM_REPO_BASE/.cm/project.json` → `repos[]`. At minimum:
 
-- [config-manager-core](https://github.com/{OWNER}/config-manager-core) —
+- [{reference_repo}](https://github.com/{OWNER}/{reference_repo}) —
   core framework, plugin system, API server
 - [cm-plugin-{name}](https://github.com/{OWNER}/cm-plugin-{name}) —
   {description}
@@ -896,7 +897,7 @@ Target platforms: Raspbian Bookworm (ARM64), Debian Bullseye slim.
 ## Architecture
 
 - **plugin.go** — `{Name}Plugin` struct implementing `plugin.Plugin` from
-  `config-manager-core`; registration handled by the core (no `init()`)
+  `{reference_repo}`; registration handled by the core (no `init()`)
 - **routes.go** — Chi router with handlers for {routes_list}; mounted by the
   core under `/api/v1/plugins/{name}`
 - **service.go** — domain logic with mutex-protected state
@@ -932,8 +933,8 @@ Routes are mounted under `/api/v1/plugins/{name}`.
 
 ## Validation
 
-- All Go code must pass `golangci-lint run`
-- All tests must pass: `go test ./...`
+- All Go code must pass `GOWORK=off golangci-lint run`
+- All tests must pass: `GOWORK=off go test ./...`
 - CI runs markdownlint + lint + test via `.github/workflows/ci.yml`
 - Never push directly to main — always use feature branches and PRs
 ````
@@ -964,8 +965,8 @@ Describe how this was tested.
 
 ## Checklist
 
-- [ ] All tests pass (`make test` or `go test ./...`)
-- [ ] Linter is clean (`make lint` or `golangci-lint run`)
+- [ ] All tests pass (`make test` or `GOWORK=off go test ./...`)
+- [ ] Linter is clean (`make lint` or `GOWORK=off golangci-lint run`)
 - [ ] Documentation updated (if applicable)
 - [ ] No secrets or credentials committed
 ```
@@ -1068,7 +1069,7 @@ managing {name} on headless Debian-based nodes.
 
 ## 4. Integration
 
-- Implements the core `plugin.Plugin` interface from `config-manager-core`.
+- Implements the core `plugin.Plugin` interface from `{reference_repo}`.
 - Does **not** call `plugin.Register()` in `init()`; registration is performed
   explicitly by the core integration layer when constructing the plugin.
 - Included in the core binary via the normal dependency graph; the core wiring
@@ -1194,7 +1195,7 @@ plugin.Register({pkg}.New{Name}Plugin())
 ```
 
 > **Note:** The plugin implements the `plugin.Plugin` interface from
-> `config-manager-core` directly.
+> `{reference_repo}` directly.
 
 ## 3. API Endpoints
 
@@ -1234,7 +1235,7 @@ The plugin exposes configuration via `GET /config`:
 ## Step 4 — Run `go mod tidy` and Verify Build
 
 ```bash
-cd cm-plugin-{name} || { echo "Failed to cd into cm-plugin-{name}"; exit 1; }
+cd cm-plugin-{name} || { echo "❌ Failed to cd into cm-plugin-{name}" >&2; exit 1; }
 GOWORK=off go mod tidy
 GOWORK=off go build ./...
 GOWORK=off go test ./...
@@ -1245,7 +1246,7 @@ All four commands must pass. Fix any issues before continuing.
 
 ## Step 5 — Wire Into Core
 
-Edit `config-manager-core/cmd/cm/main.go` (sibling repo under the manifest's parent directory):
+Edit `{reference_repo}/cmd/cm/main.go` (sibling repo under the manifest's parent directory):
 
 1. Add the import (alphabetical order among plugin imports):
 
@@ -1270,22 +1271,24 @@ Edit `config-manager-core/cmd/cm/main.go` (sibling repo under the manifest's par
    [ -f "$_cm" ] || _cm="$HOME/repo/.cm/project.json"   # fallback
    if [ -f "$_cm" ]; then
      _base="$(cd "$(dirname "$_cm")/.." && pwd)"
+     [ -n "$_base" ] || { echo "❌ Failed to resolve workspace root from $_cm" >&2; exit 1; }
      _ref="$(jq -r '.reference_repo' "$_cm")"
-     cd "${_base}/${_ref}" || { echo "Error: failed to cd into ${_ref}" >&2; exit 1; }
+     cd "${_base}/${_ref}" || { echo "❌ Failed to cd into ${_ref}" >&2; exit 1; }
    else
-     echo "No manifest found — cd to the reference repo manually before continuing." >&2
+     echo "❌ No manifest found — cd to the reference repo manually before continuing." >&2
      exit 1
    fi
    go mod edit -require "github.com/{OWNER}/cm-plugin-{name}@v0.0.0"
    go mod edit -replace "github.com/{OWNER}/cm-plugin-{name}=${_base}/cm-plugin-{name}"
-   go mod tidy
-   go build ./...
-   go test ./...
+   GOWORK=off go mod tidy
+   GOWORK=off go build ./...
+   GOWORK=off go test ./...
    ```
 
-   > The `replace` directive lets core build against the local checkout — `GOWORK=off`
-   > is not needed here since the explicit `replace` already overrides module resolution.
-   > After the plugin's initial PR is merged and tagged, remove the `replace` and run
+   > The `replace` directive lets core build against the local checkout.
+   > `GOWORK=off` ensures transitive dependencies are resolved via go.mod
+   > (not workspace), matching CI behavior. After the plugin's initial PR is
+   > merged and tagged, remove the `replace` and run
    > `go get github.com/{OWNER}/cm-plugin-{name}@v0.1.0` to switch to the real
    > module version.
 
@@ -1293,7 +1296,7 @@ Edit `config-manager-core/cmd/cm/main.go` (sibling repo under the manifest's par
 
 The core binary injects plugin versions at build time using ldflags. Add the
 new plugin's version flag to both the Makefile and `release.yml` in
-`config-manager-core`:
+`{reference_repo}`:
 
 **Makefile** — add to the `LDFLAGS` variable:
 
@@ -1318,15 +1321,18 @@ Add the new plugin to the workspace file for local cross-repo development:
 ```bash
 # Resolve workspace root via manifest discovery
 _cm="${CM_REPO_BASE:+$CM_REPO_BASE/.cm/project.json}"
-[ -f "${_cm:-}" ] || _cm="../.cm/project.json"
-[ -f "$_cm" ] || _cm="$HOME/repo/.cm/project.json"
+[ -f "${_cm:-}" ] || _cm=".cm/project.json"          # cwd
+[ -f "$_cm" ] || _cm="../.cm/project.json"            # parent dir
+[ -f "$_cm" ] || _cm="$HOME/repo/.cm/project.json"   # fallback
 if [ -f "$_cm" ]; then
   _base="$(cd "$(dirname "$_cm")/.." && pwd)"
+  [ -n "$_base" ] || { echo "❌ Failed to resolve workspace root from $_cm" >&2; exit 1; }
 else
-  echo "No manifest found — cd to workspace root manually." >&2
+  echo "❌ No manifest found — cd to workspace root manually." >&2
   exit 1
 fi
-cd "$_base" && go work use "cm-plugin-{name}"
+cd "$_base" || { echo "❌ Failed to cd into workspace root: $_base" >&2; exit 1; }
+go work use "cm-plugin-{name}"
 ```
 
 Verify:
@@ -1347,7 +1353,7 @@ gh project link {PROJECT_NUMBER} --owner {OWNER} --repo {OWNER}/cm-plugin-{name}
 ## Step 7 — Commit and Create Initial PR
 
 ```bash
-cd cm-plugin-{name} || { echo "Failed to cd into cm-plugin-{name}"; exit 1; }
+cd cm-plugin-{name} || { echo "❌ Failed to cd into cm-plugin-{name}" >&2; exit 1; }
 git add -A
 git commit -m "feat: scaffold {name} plugin skeleton
 
@@ -1368,7 +1374,8 @@ Create the PR. Write the body to a temp file first to avoid escaping issues
 on Windows/PowerShell:
 
 ```bash
-cat > /tmp/scaffold-pr-body.md << 'PRBODY'
+_pr_body="$(mktemp)"
+cat > "$_pr_body" << 'PRBODY'
 ## Summary
 
 Initial plugin scaffold for **cm-plugin-{name}** — {description}.
@@ -1388,7 +1395,7 @@ Initial plugin scaffold for **cm-plugin-{name}** — {description}.
 ### Next steps
 
 1. Merge this skeleton
-2. Wire into `config-manager-core/cmd/cm/main.go`
+2. Wire into `{reference_repo}/cmd/cm/main.go`
 3. Implement domain logic in `service.go`
 PRBODY
 ```
@@ -1399,7 +1406,8 @@ gh pr create \
   --base main \
   --head phase1/skeleton-and-specs \
   --title "feat: scaffold {name} plugin skeleton and specs" \
-  --body-file /tmp/scaffold-pr-body.md
+  --body-file "$_pr_body"
+rm -f "$_pr_body"
 ```
 
 ## Step 8 — Verification Checklist
@@ -1434,6 +1442,7 @@ _cm="${CM_REPO_BASE:+$CM_REPO_BASE/.cm/project.json}"
 if [ -f "$_cm" ]; then
   # Only add if not already present
   if ! jq -e '.repos[] | select(.name == "cm-plugin-{name}")' "$_cm" >/dev/null 2>&1; then
+    _tmp="$(mktemp)"
     jq '.repos += [{"name": "cm-plugin-{name}", "role": "{role}"}]
         | if .dep_order then
             # Insert after plugins but before UI repos (tui/web).
@@ -1444,9 +1453,8 @@ if [ -f "$_cm" ]; then
                   | .[0].key) // length)
             ) as $idx
             | .dep_order = (.dep_order[:$idx] + ["cm-plugin-{name}"] + .dep_order[$idx:])
-          else . end' "$_cm" \
-      > "$(dirname "$_cm")/project.tmp.$$.json" \
-      && mv "$(dirname "$_cm")/project.tmp.$$.json" "$_cm"
+          else . end' "$_cm" > "$_tmp" \
+      && mv "$_tmp" "$_cm" || rm -f "$_tmp"
   fi
 else
   echo "No manifest found — create one with init-project.sh to register the new plugin." >&2

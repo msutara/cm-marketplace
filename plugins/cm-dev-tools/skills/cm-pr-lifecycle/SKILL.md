@@ -180,7 +180,8 @@ Create the pull request via `gh` CLI. Use `--body-file` instead of inline
 Write the PR body to a temp file, then create the PR:
 
 ```bash
-cat > /tmp/pr-body.md << 'PRBODY'
+_pr_body="$(mktemp)"
+cat > "$_pr_body" << 'PRBODY'
 ## Summary
 
 {Description of changes}
@@ -203,7 +204,8 @@ PRBODY
 ```
 
 ```bash
-gh pr create --title "{title}" --body-file /tmp/pr-body.md --base main --head {branch-name}
+gh pr create --title "{title}" --body-file "$_pr_body" --base main --head {branch-name}
+rm -f "$_pr_body"
 ```
 
 ### Phase 8 — Project Board

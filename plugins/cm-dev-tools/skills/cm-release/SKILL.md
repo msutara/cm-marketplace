@@ -86,7 +86,7 @@ if [ -f "$_cm" ]; then
   referenceRepo=$(jq -r '.reference_repo' "$_cm")
   latestTag=$(git -C "$(dirname "$(dirname "$_cm")")/${referenceRepo}" describe --tags --abbrev=0 2>/dev/null)
 else
-  echo "No manifest found — ask the user for reference repo and latest tag." >&2
+  echo "❌ No manifest found — ask the user for reference repo and latest tag." >&2
   exit 1
 fi
 ```
@@ -139,16 +139,17 @@ _cm="${CM_REPO_BASE:+$CM_REPO_BASE/.cm/project.json}"
 [ -f "$_cm" ] || _cm="$HOME/repo/.cm/project.json"   # fallback
 if [ -f "$_cm" ]; then
   base="$(cd "$(dirname "$_cm")/.." && pwd)"
+  [ -n "$base" ] || { echo "❌ Failed to resolve workspace root from $_cm" >&2; exit 1; }
   repos=($(jq -r 'if (has("dep_order") and (.dep_order | length > 0)) then .dep_order[] else .repos[].name end' "$_cm"))
   owner="$(jq -r '.owner // empty' "$_cm")"
   referenceRepo="$(jq -r '.reference_repo // empty' "$_cm")"
   if [ -z "$owner" ] || [ -z "$referenceRepo" ]; then
-    echo "Manifest $_cm is missing required fields: owner and/or reference_repo." >&2
+    echo "❌ Manifest $_cm is missing required fields: owner and/or reference_repo." >&2
     exit 1
   fi
 else
-  echo "No manifest found — ask the user for repo list and base directory." >&2
-  echo "Cannot proceed without manifest or explicit repo list." >&2
+  echo "❌ No manifest found — ask the user for repo list and base directory." >&2
+  echo "   Cannot proceed without manifest or explicit repo list." >&2
   exit 1
 fi
 
@@ -567,11 +568,14 @@ reports the correct version:
 
 ```bash
 # Download the release binary and check
+_tmpdir="$(mktemp -d)"
 gh release download "$version" --repo "$owner/$referenceRepo" \
-    --pattern "*amd64.deb" --dir /tmp
-# Or if built locally:
-GOWORK=off go build -ldflags="-s -w $(cat ldflags.txt)" -o /tmp/cm ./cmd/cm
-/tmp/cm --version | grep -q "${version#v}" && echo "✅ Version correct" || echo "❌ Version mismatch"
+    --pattern "*amd64.deb" --dir "$_tmpdir"
+# Or if built locally (ldflags must match release.yml):
+_ldflags="-s -w -X main.version=${version#v} -X main.commit=$(git rev-parse --short HEAD) -X main.date=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+GOWORK=off go build -ldflags="$_ldflags" -o "$_tmpdir/cm" ./cmd/cm
+"$_tmpdir/cm" --version | grep -q "${version#v}" && echo "✅ Version correct" || echo "❌ Version mismatch"
+rm -rf "$_tmpdir"
 ```
 
 ## Phase 7 — Release Notes Generation
@@ -583,10 +587,9 @@ For each repo **included in scope**, generate rich release notes.
 Each release note **MUST** include:
 
 1. **Repo description** (1–2 sentences) — what this repo/plugin does and who
-   it's for. Read from the repo's `README.md` first paragraph or
-   `.cm/project.json` → `repos[].description`. Especially important for repos
-   that don't release every cycle (readers may be seeing the repo for the first
-   time).
+   it's for. Read from the repo's `README.md` first paragraph. Especially
+   important for repos that don't release every cycle (readers may be seeing
+   the repo for the first time).
 
 2. **What's New summary** — a paragraph (not just bullets) explaining the theme
    of this release and why the changes matter.
@@ -664,8 +667,9 @@ For each repo, write the generated release notes to a temp file that Phase 8
 will consume:
 
 ```bash
+_notes_dir="$(mktemp -d)"
 for n in "${included_repos[@]}"; do
-    notesFile="/tmp/release-notes-${n}.md"
+    notesFile="${_notes_dir}/release-notes-${n}.md"
     # Generate the notes following the structure above, then write to file.
     # The AI agent composing these notes should populate each section
     # (description, what's new, categorized changelog, credits, compare link).
@@ -695,7 +699,7 @@ Create a GitHub release for each repo using the generated notes:
 
 ```bash
 for n in "${included_repos[@]}"; do
-    notesFile="/tmp/release-notes-${n}.md"
+    notesFile="${_notes_dir}/release-notes-${n}.md"
     if [ ! -f "$notesFile" ]; then
         echo "❌ ${n}: release notes file not found at $notesFile" >&2
         echo "   Run Phase 7 first to generate release notes." >&2
@@ -717,6 +721,7 @@ for n in "${included_repos[@]}"; do
     fi
     echo "📦 Release ready: https://github.com/$owner/$n/releases/tag/$version"
 done
+rm -rf "$_notes_dir"
 ```
 
 ## Phase 9 — Release Workflow Verification
@@ -874,7 +879,8 @@ CI auto-creates a release AND you manually create one):
 releaseCount=$(gh release list --repo "$owner/$n" --json tagName \
     --jq "[.[] | select(.tagName == \"$version\")] | length")
 if [[ "$releaseCount" -gt 1 ]]; then
-    echo "⚠️ Duplicate releases found for $version on $n — clean up manually"
+    echo "❌ Duplicate releases found for $version on $n — requires manual cleanup" >&2
+    exit 1
 fi
 ```
 
