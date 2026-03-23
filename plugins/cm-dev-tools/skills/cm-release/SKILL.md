@@ -3,10 +3,13 @@ name: cm-release
 description: >
   Cross-repo release workflow for all Config Manager repositories. Validates
   every repo (clean tree, build, test, lint), determines release scope, tags in
-  multi-wave dependency order with go.mod sync between waves, generates rich
-  release notes with repo context and categorized changelogs, creates GitHub
-  releases, verifies CI artifacts, and updates the project board. Supports
-  semver strings and bump types. Includes rollback/recovery for partial releases.
+  multi-wave dependency order with per-repo independent version timelines and
+  go.mod sync between waves, generates rich release notes with repo context and
+  categorized changelogs, creates GitHub releases, verifies CI artifacts, and
+  updates the project board. Each repo maintains its own version — a bump type
+  (patch/minor/major) is applied to each repo's last tag independently. The
+  reference repo (core) is always included as the product umbrella. Includes
+  rollback/recovery for partial releases.
   USE FOR: release, tag repos, create release, bump version, release all repos,
   retag, cm release, new release, publish release, tag all, version bump.
 ---
@@ -14,9 +17,17 @@ description: >
 # CM Cross-Repo Release Workflow
 
 Orchestrate a synchronized release across all Config Manager repositories.
-Tags are applied in **multi-wave dependency order** — leaf modules first, then
-modules that import them — with `go.mod` sync between waves so that every
-repo's CI build resolves correct dependency versions.
+Each repo maintains its own independent version timeline — a bump type
+(`patch`, `minor`, or `major`) is applied to each repo's latest tag to compute
+its next version. Tags are applied in **multi-wave dependency order** — leaf
+modules first, then modules that import them — with `go.mod` sync between
+waves so that every repo's CI build resolves correct dependency versions.
+The reference repo (core) is always included as the product umbrella.
+
+> **Requirements:** Bash 4+ (for associative arrays). On macOS, the default
+> `/bin/bash` is 3.2 — install a newer version via Homebrew (`brew install bash`)
+> and invoke with that shell. Also requires: `jq`, `gh` (GitHub CLI), `git`,
+> `go`, `golangci-lint`, and `markdownlint-cli2`.
 
 ## Project Context
 
@@ -66,38 +77,22 @@ importing repos pick up the freshly-tagged versions.
 
 | Parameter | Required | Description |
 | --- | --- | --- |
-| **version** | ✅ | Semver string or bump type (see below) |
+| **bump** | ✅ | Bump type: `patch`, `minor`, or `major` |
 
-Accepted formats:
+Each repo maintains its own version timeline. The bump type is applied
+independently to each included repo's last tag to compute its next version.
+For example, a `patch` bump might produce:
 
-- Explicit semver: `v0.5.0`
-- Bump type: `patch`, `minor`, or `major`
+- core: v0.4.5 → v0.4.6
+- network: v0.4.4 → v0.4.5
+- tui: v0.4.3 → v0.4.4
 
-If a bump type is given instead of an explicit version, calculate the next version
-from the latest tag on the reference repo (read `reference_repo` from the manifest):
+The **product version** (used for the overall release label) is the reference
+repo's computed version, since core IS the Config Manager product.
 
-```bash
-# Discover project manifest: $CM_REPO_BASE → cwd → parent → $HOME/repo (optional — ask user for context if unavailable)
-_cm="${CM_REPO_BASE:+$CM_REPO_BASE/.cm/project.json}"
-[ -f "${_cm:-}" ] || _cm=".cm/project.json"          # cwd
-[ -f "$_cm" ] || _cm="../.cm/project.json"            # parent dir
-[ -f "$_cm" ] || _cm="$HOME/repo/.cm/project.json"   # fallback
-if [ -f "$_cm" ]; then
-  referenceRepo=$(jq -r '.reference_repo // .repos[0].name' "$_cm")
-  if [ -z "$referenceRepo" ] || [ "$referenceRepo" = "null" ]; then
-    echo "❌ reference_repo is not set in manifest and no repos[0].name fallback available." >&2
-    exit 1
-  fi
-  latestTag=$(git -C "$(dirname "$(dirname "$_cm")")/${referenceRepo}" describe --tags --abbrev=0 2>/dev/null)
-else
-  echo "❌ No manifest found — ask the user for reference repo and latest tag." >&2
-  exit 1
-fi
-```
-
-Parse with semver rules, increment the requested component, and reset lower
-components to zero. Always confirm the computed version with the user before
-proceeding.
+Per-repo version computation happens in Phase 2, after determining which repos
+are included in scope. Always confirm the computed versions with the user
+before proceeding.
 
 ## Phase 0 — Authentication Check
 
@@ -253,27 +248,40 @@ Categorize each repo:
 - If the repo would skip a version number (e.g., v0.4.3 → v0.4.5) → flag for
   user decision
 
-Print a scope table and **confirm with the user** before proceeding:
+Print a scope table and **confirm with the user** before proceeding.
+The "Next Version" column is a **preview** based on the bump type; final
+per-repo versions are computed after confirmation in "Derive wave arrays":
 
 ```txt
-Release Scope for v0.5.0
+Release Scope (patch bump)
 
-| Repo              | Last Tag | Changes            | Include? |
-| ----------------- | -------- | ------------------ | -------- |
-| cm-plugin-network | v0.4.4   | 1 feat, 1 fix      | ✅       |
-| cm-plugin-update  | v0.4.4   | 1 feat              | ✅       |
-| config-manager-core | v0.4.4 | 2 feat, go.mod bump | ✅       |
-| config-manager-tui | v0.4.3  | 3 chores only       | ❌ skip  |
-| config-manager-web | v0.4.4  | 1 docs only         | ❌ skip  |
+| Repo                 | Last Tag | Next Version | Changes            | Include?   |
+| -------------------- | -------- | ------------ | ------------------ | ---------- |
+| cm-plugin-network    | v0.4.4   | v0.4.5       | 1 feat, 1 fix      | ✅          |
+| cm-plugin-update     | v0.4.4   | v0.4.5       | 1 feat             | ✅          |
+| config-manager-core  | v0.4.5   | v0.4.6       | chores only        | ✅ always   |
+| config-manager-tui   | v0.4.3   | v0.4.4       | 3 chores only      | ❌ skip     |
+| config-manager-web   | v0.4.4   | v0.4.5       | 1 docs only        | ❌ skip     |
 
+Product version (core): v0.4.6
 Proceed with 3 repos? [y/N]
 ```
+
+> **Note:** `config-manager-core` (the reference repo) is **always** included —
+> it is the Config Manager product umbrella. Its release notes describe
+> ecosystem-wide changes even when its own code has no feat/fix commits.
 
 Only included repos participate in Phases 3–9. Skipped repos keep their
 current tag.
 
-> ⚠️ If **no repos** are included (all chore-only), abort the release. A
-> release with zero tagged repos is not meaningful. Tell the user and stop.
+> ⚠️ If **no repos** (other than the auto-included `config-manager-core`)
+> have feat/fix changes, the release scope is effectively **core-only**. The
+> workflow should either (a) proceed with a core-only release after explicit
+> user confirmation, or (b) allow the user to abort if they do not want a
+> scope-less product release. If, despite Phase 1 requiring a manifest,
+> `$referenceRepo` is unset, treat that as a configuration error and abort with
+> a clear message — this should not happen in normal runs because core
+> auto-include ensures at least one repo.
 
 ### Derive wave arrays
 
@@ -284,14 +292,60 @@ repos that don't are "leaves." Core sits between plugins and UI:
 ```bash
 # After Phase 2 scope confirmation, build the wave arrays.
 # Populate included_repos from user-approved scope (repos marked ✅).
-# This array must be set before proceeding — fail if empty.
 included_repos=()  # ← populate from Phase 2 scope decisions
 # Example: included_repos=("cm-plugin-network" "cm-plugin-update" "config-manager-core")
 
-if [ ${#included_repos[@]} -eq 0 ]; then
-    echo "❌ No repos included in release scope. Aborting." >&2
-    exit 1
+# The reference repo is ALWAYS included — it's the product umbrella.
+# Its release notes describe ecosystem-wide changes even when its own code is unchanged.
+# This auto-include must run before the core-only confirmation below so that an all-chore
+# release still produces a core tag with ecosystem-wide notes.
+if [ -z "${referenceRepo:-}" ]; then
+    echo "❌ \$referenceRepo is unset — manifest may be misconfigured." >&2; exit 1
 fi
+if ! printf '%s\n' "${included_repos[@]}" | grep -Fqx "$referenceRepo" 2>/dev/null; then
+    included_repos+=("$referenceRepo")
+    echo "ℹ️  $referenceRepo auto-included as product umbrella (no own changes this cycle)"
+fi
+
+# At this point the reference repo is guaranteed to be in the scope.
+# If the scope is *only* the reference repo, confirm core-only release.
+if [ ${#included_repos[@]} -eq 1 ] && [ "${included_repos[0]}" = "$referenceRepo" ]; then
+    printf '⚠️  Release scope is core-only (%s). Proceed? [y/N]: ' "$referenceRepo" >&2
+    read -r confirm
+    case "$confirm" in
+        [Yy]|[Yy][Ee][Ss]) ;;
+        *)
+            echo "Aborting core-only release by user choice." >&2
+            exit 1
+            ;;
+    esac
+fi
+
+# Compute per-repo versions from each repo's last tag + bump type.
+# Each repo maintains its own independent version timeline.
+# Fetch tags first to ensure local clone reflects remote state.
+declare -A repo_version
+for n in "${included_repos[@]}"; do
+    if ! git -C "$base/$n" fetch --tags --quiet 2>/dev/null; then
+        echo "❌ Failed to fetch tags for '$n'. Aborting to avoid stale tag info." >&2; exit 1
+    fi
+    lastTag=$(git -C "$base/$n" describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+    # Validate tag is semver (vMAJOR.MINOR.PATCH)
+    if ! echo "$lastTag" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+        echo "❌ Tag '$lastTag' in $n is not valid semver (expected vX.Y.Z)" >&2; exit 1
+    fi
+    major=$(echo "$lastTag" | sed 's/^v//' | cut -d. -f1)
+    minor=$(echo "$lastTag" | sed 's/^v//' | cut -d. -f2)
+    patch=$(echo "$lastTag" | sed 's/^v//' | cut -d. -f3)
+    case "$bump" in
+        major) repo_version[$n]="v$((major + 1)).0.0" ;;
+        minor) repo_version[$n]="v${major}.$((minor + 1)).0" ;;
+        patch) repo_version[$n]="v${major}.${minor}.$((patch + 1))" ;;
+        *) echo "❌ Invalid bump type: '$bump' (expected: major, minor, or patch)" >&2; exit 1 ;;
+    esac
+done
+
+echo "Product version (core): ${repo_version[$referenceRepo]}"
 
 # Classify repos into tagging waves using stable signals.
 # Core = reference_repo, UI = role contains tui/web/ui, Leaf = everything else.
@@ -335,22 +389,22 @@ for n in "${leaf_repos[@]}"; do
     prevTag=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
     if [ -n "$prevTag" ]; then
         changelog=$(git log "$prevTag..HEAD" --oneline --no-merges)
-        compareLink="Full changelog: https://github.com/$owner/$n/compare/${prevTag}...$version"
+        compareLink="Full changelog: https://github.com/$owner/$n/compare/${prevTag}...${repo_version[$n]}"
     else
         changelog=$(git log --oneline --no-merges)
         compareLink="Initial release"
     fi
 
-    annotation="Release $version — $(echo "$changelog" | head -1)
+    annotation="Release ${repo_version[$n]} — $(echo "$changelog" | head -1)
 
 Changes:
 $changelog
 
 $compareLink"
 
-    git tag -a "$version" -m "$annotation" || { echo "❌ ${n}: git tag failed" >&2; exit 1; }
-    git push origin "$version" || { echo "❌ ${n}: git push tag failed" >&2; exit 1; }
-    echo "🏷️  Tagged ${n} → $version"
+    git tag -a "${repo_version[$n]}" -m "$annotation" || { echo "❌ ${n}: git tag failed" >&2; exit 1; }
+    git push origin "${repo_version[$n]}" || { echo "❌ ${n}: git push tag failed" >&2; exit 1; }
+    echo "🏷️  Tagged ${n} → ${repo_version[$n]}"
     popd > /dev/null
 done
 ```
@@ -365,17 +419,17 @@ for n in "${leaf_repos[@]}"; do
     module="github.com/$owner/$n"
     indexed=false
     for attempt in 1 2 3 4 5; do
-        if GOWORK=off go list -m "$module@$version" 2>/dev/null; then
-            echo "✅ $module@$version available on proxy"
+        if GOWORK=off go list -m "$module@${repo_version[$n]}" 2>/dev/null; then
+            echo "✅ $module@${repo_version[$n]} available on proxy"
             indexed=true
             break
         fi
-        echo "⏳ Waiting for proxy to index $module@$version (attempt $attempt/5)..."
+        echo "⏳ Waiting for proxy to index $module@${repo_version[$n]} (attempt $attempt/5)..."
         sleep 10
     done
     if [ "$indexed" = false ]; then
-        echo "❌ $module@$version NOT available on proxy after 5 attempts." >&2
-        echo "   Check: https://proxy.golang.org/$module/@v/$version.info" >&2
+        echo "❌ $module@${repo_version[$n]} NOT available on proxy after 5 attempts." >&2
+        echo "   Check: https://proxy.golang.org/$module/@v/${repo_version[$n]}.info" >&2
         echo "   STOP — do not proceed to Phase 4 until all modules are indexed." >&2
         exit 1
     fi
@@ -393,13 +447,13 @@ The go.mod bump **MUST go through a PR** — never push directly to main.
 for n in "${core_repos[@]}"; do
     pushd "$base/$n" > /dev/null || { echo "❌ ${n}: directory not found" >&2; exit 1; }
 
-    # Create release branch
-    git checkout -b "release/$version"
+    # Create release branch (named after the product version)
+    git checkout -b "release/${repo_version[$referenceRepo]}"
 
-    # Bump all freshly-tagged dependencies
+    # Bump all freshly-tagged dependencies (each at its own version)
     for leaf in "${leaf_repos[@]}"; do
         module="github.com/$owner/$leaf"
-        GOWORK=off go get "$module@$version"
+        GOWORK=off go get "$module@${repo_version[$leaf]}"
     done
 
     GOWORK=off go mod tidy
@@ -413,18 +467,18 @@ for n in "${core_repos[@]}"; do
     if git diff --cached --quiet -- go.mod go.sum; then
         echo "ℹ️ No go.mod/go.sum changes for $n; skipping dependency PR."
         git checkout main
-        git branch -D "release/$version"
+        git branch -D "release/${repo_version[$referenceRepo]}"
         popd > /dev/null
         continue
     fi
-    git commit -m "release: bump plugin dependencies to $version"
-    git push origin "release/$version"
+    git commit -m "release: bump plugin dependencies for ${repo_version[$referenceRepo]}"
+    git push origin "release/${repo_version[$referenceRepo]}"
 
     _pr_body="$(mktemp)"
-    printf 'Automated go.mod bump for release %s.\n' "$version" > "$_pr_body"
+    printf 'Automated go.mod bump for release %s.\n' "${repo_version[$referenceRepo]}" > "$_pr_body"
 
     gh pr create \
-        --title "release: bump deps to $version" \
+        --title "release: bump deps for ${repo_version[$referenceRepo]}" \
         --body-file "$_pr_body" \
         --base main
 
@@ -457,22 +511,22 @@ for n in "${core_repos[@]}"; do
     prevTag=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
     if [ -n "$prevTag" ]; then
         changelog=$(git log "$prevTag..HEAD" --oneline --no-merges)
-        compareLink="Full changelog: https://github.com/$owner/$n/compare/${prevTag}...$version"
+        compareLink="Full changelog: https://github.com/$owner/$n/compare/${prevTag}...${repo_version[$n]}"
     else
         changelog=$(git log --oneline --no-merges)
         compareLink="Initial release"
     fi
 
-    annotation="Release $version — $(echo "$changelog" | head -1)
+    annotation="Release ${repo_version[$n]} — $(echo "$changelog" | head -1)
 
 Changes:
 $changelog
 
 $compareLink"
 
-    git tag -a "$version" -m "$annotation" || { echo "❌ ${n}: git tag failed" >&2; exit 1; }
-    git push origin "$version" || { echo "❌ ${n}: git push tag failed" >&2; exit 1; }
-    echo "🏷️  Tagged ${n} → $version"
+    git tag -a "${repo_version[$n]}" -m "$annotation" || { echo "❌ ${n}: git tag failed" >&2; exit 1; }
+    git push origin "${repo_version[$n]}" || { echo "❌ ${n}: git push tag failed" >&2; exit 1; }
+    echo "🏷️  Tagged ${n} → ${repo_version[$n]}"
     popd > /dev/null
 done
 ```
@@ -486,16 +540,16 @@ for n in "${core_repos[@]}"; do
     module="github.com/$owner/$n"
     indexed=false
     for attempt in 1 2 3 4 5; do
-        if GOWORK=off go list -m "$module@$version" 2>/dev/null; then
-            echo "✅ $module@$version available on proxy"
+        if GOWORK=off go list -m "$module@${repo_version[$n]}" 2>/dev/null; then
+            echo "✅ $module@${repo_version[$n]} available on proxy"
             indexed=true
             break
         fi
-        echo "⏳ Waiting for proxy to index $module@$version (attempt $attempt/5)..."
+        echo "⏳ Waiting for proxy to index $module@${repo_version[$n]} (attempt $attempt/5)..."
         sleep 10
     done
     if [ "$indexed" = false ]; then
-        echo "❌ $module@$version NOT available on proxy after 5 attempts." >&2
+        echo "❌ $module@${repo_version[$n]} NOT available on proxy after 5 attempts." >&2
         echo "   STOP — do not proceed to Phase 5.5 until all modules are indexed." >&2
         exit 1
     fi
@@ -512,12 +566,12 @@ After tagging core, update `go.mod` in UI repos that import core + plugins:
 for n in "${ui_repos[@]}"; do
     pushd "$base/$n" > /dev/null || { echo "❌ ${n}: directory not found" >&2; exit 1; }
 
-    git checkout -b "release/$version"
+    git checkout -b "release/${repo_version[$referenceRepo]}"
 
-    # Bump core + plugin dependencies
+    # Bump core + plugin dependencies (each at its own version)
     for dep in "${core_repos[@]}" "${leaf_repos[@]}"; do
         module="github.com/$owner/$dep"
-        GOWORK=off go get "$module@$version"
+        GOWORK=off go get "$module@${repo_version[$dep]}"
     done
 
     GOWORK=off go mod tidy
@@ -528,18 +582,18 @@ for n in "${ui_repos[@]}"; do
     if git diff --cached --quiet -- go.mod go.sum; then
         echo "ℹ️ No go.mod/go.sum changes for $n; skipping dependency PR."
         git checkout main
-        git branch -D "release/$version"
+        git branch -D "release/${repo_version[$referenceRepo]}"
         popd > /dev/null
         continue
     fi
-    git commit -m "release: bump core + plugin dependencies to $version"
-    git push origin "release/$version"
+    git commit -m "release: bump core + plugin dependencies for ${repo_version[$referenceRepo]}"
+    git push origin "release/${repo_version[$referenceRepo]}"
 
     _pr_body="$(mktemp)"
-    printf 'Automated go.mod bump for release %s.\n' "$version" > "$_pr_body"
+    printf 'Automated go.mod bump for release %s.\n' "${repo_version[$referenceRepo]}" > "$_pr_body"
 
     gh pr create \
-        --title "release: bump deps to $version" \
+        --title "release: bump deps for ${repo_version[$referenceRepo]}" \
         --body-file "$_pr_body" \
         --base main
 
@@ -567,22 +621,22 @@ for n in "${ui_repos[@]}"; do
     prevTag=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
     if [ -n "$prevTag" ]; then
         changelog=$(git log "$prevTag..HEAD" --oneline --no-merges)
-        compareLink="Full changelog: https://github.com/$owner/$n/compare/${prevTag}...$version"
+        compareLink="Full changelog: https://github.com/$owner/$n/compare/${prevTag}...${repo_version[$n]}"
     else
         changelog=$(git log --oneline --no-merges)
         compareLink="Initial release"
     fi
 
-    annotation="Release $version — $(echo "$changelog" | head -1)
+    annotation="Release ${repo_version[$n]} — $(echo "$changelog" | head -1)
 
 Changes:
 $changelog
 
 $compareLink"
 
-    git tag -a "$version" -m "$annotation" || { echo "❌ ${n}: git tag failed" >&2; exit 1; }
-    git push origin "$version" || { echo "❌ ${n}: git push tag failed" >&2; exit 1; }
-    echo "🏷️  Tagged ${n} → $version"
+    git tag -a "${repo_version[$n]}" -m "$annotation" || { echo "❌ ${n}: git tag failed" >&2; exit 1; }
+    git push origin "${repo_version[$n]}" || { echo "❌ ${n}: git push tag failed" >&2; exit 1; }
+    echo "🏷️  Tagged ${n} → ${repo_version[$n]}"
     popd > /dev/null
 done
 ```
@@ -595,12 +649,12 @@ reports the correct version:
 ```bash
 # Download the release binary and check
 _tmpdir="$(mktemp -d)"
-gh release download "$version" --repo "$owner/$referenceRepo" \
+gh release download "${repo_version[$referenceRepo]}" --repo "$owner/$referenceRepo" \
     --pattern "*amd64.deb" --dir "$_tmpdir"
 # Or if built locally (ldflags must match release.yml):
-_ldflags="-s -w -X main.version=${version#v} -X main.commit=$(git rev-parse --short HEAD) -X main.date=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+_ldflags="-s -w -X main.version=${repo_version[$referenceRepo]#v} -X main.commit=$(git rev-parse --short HEAD) -X main.date=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 GOWORK=off go build -ldflags="$_ldflags" -o "$_tmpdir/cm" ./cmd/cm
-"$_tmpdir/cm" --version | grep -q "${version#v}" && echo "✅ Version correct" || echo "❌ Version mismatch"
+"$_tmpdir/cm" --version | grep -q "${repo_version[$referenceRepo]#v}" && echo "✅ Version correct" || echo "❌ Version mismatch"
 rm -rf "$_tmpdir"
 ```
 
@@ -646,7 +700,7 @@ Each release note **MUST** include:
 ### Example release note
 
 ```markdown
-## cm-plugin-network v0.5.0
+## cm-plugin-network v0.4.5
 
 Network configuration plugin for Config Manager. Manages static IP
 addresses, DNS settings, and interface configuration on headless Debian
@@ -670,21 +724,24 @@ endpoint registry was also completed (9 routes, up from 4).
 
 ### Full Changelog
 
-https://github.com/{OWNER}/cm-plugin-network/compare/v0.4.4...v0.5.0
+https://github.com/{OWNER}/cm-plugin-network/compare/v0.4.4...v0.4.5
 ```
 
 ### Reference repo downloads table
 
-For the reference repo, append a downloads section:
+For the reference repo, append a downloads section. `{VERSION}` is the version
+**without** the leading `v` (e.g., `0.4.6`). The artifact prefix matches the
+binary name produced by the reference repo's release workflow
+(`config-manager`):
 
 ```markdown
 ### Downloads
 
 | Architecture | Package |
 | --- | --- |
-| ARM64 (Pi 4/5) | `cm_0.5.0_arm64.deb` |
-| ARMv7 (Pi 3/Zero 2) | `cm_0.5.0_armhf.deb` |
-| AMD64 | `cm_0.5.0_amd64.deb` |
+| ARM64 (Pi 4/5) | `config-manager_{VERSION}_arm64.deb` |
+| ARMv7 (Pi 3/Zero 2) | `config-manager_{VERSION}_armhf.deb` |
+| AMD64 | `config-manager_{VERSION}_amd64.deb` |
 ```
 
 ### Write notes to files
@@ -701,7 +758,7 @@ for n in "${included_repos[@]}"; do
     # (description, what's new, categorized changelog, credits, compare link).
     # For the reference repo, append the downloads table.
     cat > "$notesFile" << EOF
-## $n $version
+## $n ${repo_version[$n]}
 
 {repo description from README.md or manifest}
 
@@ -713,7 +770,7 @@ for n in "${included_repos[@]}"; do
 
 ### Full Changelog
 
-https://github.com/$owner/$n/compare/{prevTag}...$version
+https://github.com/$owner/$n/compare/{prevTag}...${repo_version[$n]}
 EOF
     echo "📝 Notes written: $notesFile"
 done
@@ -733,19 +790,19 @@ for n in "${included_repos[@]}"; do
     fi
 
     # Check if release already exists (plugin repos' release.yml may create one on tag push)
-    if gh release view "$version" --repo "$owner/$n" >/dev/null 2>&1; then
-        echo "📦 Release already exists for $n $version — updating notes"
-        gh release edit "$version" \
+    if gh release view "${repo_version[$n]}" --repo "$owner/$n" >/dev/null 2>&1; then
+        echo "📦 Release already exists for $n ${repo_version[$n]} — updating notes"
+        gh release edit "${repo_version[$n]}" \
             --repo "$owner/$n" \
-            --title "$n $version" \
+            --title "$n ${repo_version[$n]}" \
             --notes-file "$notesFile"
     else
-        gh release create "$version" \
+        gh release create "${repo_version[$n]}" \
             --repo "$owner/$n" \
-            --title "$n $version" \
+            --title "$n ${repo_version[$n]}" \
             --notes-file "$notesFile"
     fi
-    echo "📦 Release ready: https://github.com/$owner/$n/releases/tag/$version"
+    echo "📦 Release ready: https://github.com/$owner/$n/releases/tag/${repo_version[$n]}"
 done
 rm -rf "$_notes_dir"
 ```
@@ -776,9 +833,9 @@ packages compiled into the core binary.
 ```bash
 _release_failed=false
 for n in "${included_repos[@]}"; do
-    tag_sha=$(git -C "$base/$n" rev-parse "$version" 2>/dev/null || true)
+    tag_sha=$(git -C "$base/$n" rev-parse "${repo_version[$n]}" 2>/dev/null || true)
     if [ -z "$tag_sha" ]; then
-        echo "❌ ${n}: unable to resolve commit for tag $version" >&2
+        echo "❌ ${n}: unable to resolve commit for tag ${repo_version[$n]}" >&2
         _release_failed=true
         continue
     fi
@@ -792,7 +849,7 @@ for n in "${included_repos[@]}"; do
 
     dbId=$(echo "$run" | jq -r '.databaseId // empty')
     if [ -z "$dbId" ]; then
-        echo "❌ ${n}: no release workflow run found for tag $version ($tag_sha)" >&2
+        echo "❌ ${n}: no release workflow run found for tag ${repo_version[$n]} ($tag_sha)" >&2
         _release_failed=true
         continue
     fi
@@ -815,7 +872,7 @@ for n in "${included_repos[@]}"; do
 
     # For reference repo, verify .deb artifacts
     if [[ "$n" == "$referenceRepo" ]]; then
-        assets=$(gh release view "$version" \
+        assets=$(gh release view "${repo_version[$n]}" \
             --repo "$owner/$n" \
             --json assets --jq '.assets[].name')
         debCount=$(echo "$assets" | grep -c '\.deb$' || true)
@@ -862,17 +919,17 @@ done
 ### Print release summary
 
 ```txt
-✅ Release v0.5.0 complete
+✅ Release ${repo_version[$referenceRepo]} complete
 
 | Repo                 | Tag    | Wave | Artifacts |
 | -------------------- | ------ | ---- | --------- |
-| cm-plugin-network    | v0.5.0 | 1    | —         |
-| cm-plugin-update     | v0.5.0 | 1    | —         |
-| config-manager-core  | v0.5.0 | 2    | 3 .deb    |
+| cm-plugin-network    | v0.4.5 | 1    | —         |
+| cm-plugin-update     | v0.4.5 | 1    | —         |
+| config-manager-core  | v0.4.6 | 2    | 3 .deb    |
 | config-manager-tui   | —      | skip | —         |
 | config-manager-web   | —      | skip | —         |
 
-(Use actual repo names from manifest's dep_order)
+(Use actual repo names and per-repo versions from manifest's dep_order)
 
 Release URLs printed per repo.
 ```
@@ -883,11 +940,11 @@ If a tag already exists on a repo, **require explicit user approval** before
 deleting and re-creating it:
 
 ```bash
-existingTag=$(git -C "$base/$n" tag -l "$version")
+existingTag=$(git -C "$base/$n" tag -l "${repo_version[$n]}")
 if [[ -n "$existingTag" ]]; then
     # ⚠️ MUST ask user for confirmation before proceeding
-    git -C "$base/$n" tag -d "$version"
-    git -C "$base/$n" push origin --delete "$version"
+    git -C "$base/$n" tag -d "${repo_version[$n]}"
+    git -C "$base/$n" push origin --delete "${repo_version[$n]}"
 fi
 ```
 
@@ -903,7 +960,7 @@ gh release list --repo "$owner/$n" --json tagName,isDraft \
 Delete any orphaned drafts:
 
 ```bash
-gh release delete "$version" --repo "$owner/$n" --yes
+gh release delete "${repo_version[$n]}" --repo "$owner/$n" --yes
 ```
 
 Also check that no duplicate releases exist for the same tag (can happen when
@@ -911,9 +968,9 @@ CI auto-creates a release AND you manually create one):
 
 ```bash
 releaseCount=$(gh release list --repo "$owner/$n" --json tagName \
-    --jq "[.[] | select(.tagName == \"$version\")] | length")
+    --jq "[.[] | select(.tagName == \"${repo_version[$n]}\")] | length")
 if [[ "$releaseCount" -gt 1 ]]; then
-    echo "❌ Duplicate releases found for $version on $n — requires manual cleanup" >&2
+    echo "❌ Duplicate releases found for ${repo_version[$n]} on $n — requires manual cleanup" >&2
     exit 1
 fi
 ```
@@ -922,23 +979,59 @@ fi
 
 If a release is partially complete or incorrect:
 
-1. **Assess damage** — list which repos have the tag:
+1. **Assess damage** — list which repos have the tag from the failed release.
+   The operator must provide the intended release tags (e.g., `v0.4.6`) so the
+   snippet can check for those specific tags, not just the latest. This snippet
+   is fresh-session safe and uses the same manifest discovery as the main
+   tooling:
 
    ```bash
-   for n in "${repos[@]}"; do
-       tagged=$(git -C "$base/$n" ls-remote --tags origin | grep "$version" || true)
-       if [ -n "$tagged" ]; then
-           echo "🏷️  $n: tagged"
+   # Re-read manifest for recovery (fresh session safe).
+   # Uses same discovery as Phase 1: $CM_REPO_BASE → cwd → parent → $HOME/repo
+   _cm="${CM_REPO_BASE:+$CM_REPO_BASE/.cm/project.json}"
+   [ -f "${_cm:-}" ] || _cm=".cm/project.json"
+   [ -f "$_cm" ] || _cm="../.cm/project.json"
+   [ -f "$_cm" ] || _cm="$HOME/repo/.cm/project.json"
+   if [ ! -f "$_cm" ]; then
+       echo "❌ Unable to locate .cm/project.json" >&2; exit 1
+   fi
+   base="$(cd "$(dirname "$_cm")/.." && pwd)"
+   owner=$(jq -r '.owner // empty' "$_cm")
+   all_repos=($(jq -r '.repos[].name' "$_cm"))
+
+   # Provide the expected release tag(s) for the failed release.
+   # Option A — single tag for all repos:  RELEASE_TAG="v0.4.6"
+   # Option B — per-repo tags:  RELEASE_TAGS="cm-plugin-network=v0.4.5 config-manager-core=v0.4.6"
+
+   for n in "${all_repos[@]}"; do
+       # Check for the expected release tag directly on the remote.
+       # The operator provides RELEASE_TAGS as a space-separated "repo=tag" map,
+       # or a single tag if all repos share the same version.
+       # Example: RELEASE_TAGS="cm-plugin-network=v0.4.5 config-manager-core=v0.4.6"
+       #      or: RELEASE_TAG="v0.4.6" (single tag for all repos)
+       if [ -n "${RELEASE_TAGS:-}" ]; then
+           expected=$(echo "$RELEASE_TAGS" | tr ' ' '\n' | awk -F= -v repo="$n" '$1 == repo { print $2; exit }')
+           [ -z "$expected" ] && expected="${RELEASE_TAG:-}"
        else
-           echo "   $n: not tagged"
+           expected="${RELEASE_TAG:?Set RELEASE_TAG or RELEASE_TAGS (repo=tag pairs)}"
+       fi
+       if [ -z "$expected" ]; then
+           echo "   $n: no expected tag provided, skipping"
+           continue
+       fi
+       tagged=$(git -C "$base/$n" ls-remote --tags origin "refs/tags/$expected" 2>/dev/null || true)
+       if [ -n "$tagged" ]; then
+           echo "🏷️  $n: tagged ($expected)"
+       else
+           echo "   $n: not tagged with $expected"
        fi
    done
    ```
 
-2. **For each repo that needs fixing**:
-   - Delete the GitHub release: `gh release delete "$version" --repo "$owner/$n" --yes`
-   - Delete remote tag: `git push origin --delete "$version"`
-   - Delete local tag: `git tag -d "$version"`
+2. **For each repo that needs fixing** (substitute the actual tag from step 1):
+   - Delete the GitHub release: `gh release delete "<tag>" --repo "$owner/$n" --yes`
+   - Delete remote tag: `git push origin --delete "<tag>"`
+   - Delete local tag: `git tag -d "<tag>"`
 
 3. **Clean up orphaned drafts** (see Post-redo orphan cleanup above).
 
@@ -950,11 +1043,11 @@ If a release is partially complete or incorrect:
 > it with different content **will cause checksum mismatches**. Verify with:
 >
 > ```bash
-> curl -s "https://proxy.golang.org/github.com/$owner/$n/@v/$version.info"
+> curl -s "https://proxy.golang.org/github.com/$owner/$n/@v/<expected-tag>.info"
 > ```
 >
 > If the proxy has cached the old tag, you must use a different version number
-> (e.g., `v0.5.1` instead of reusing `v0.5.0`).
+> (e.g., bump again instead of reusing the same version).
 
 ## Manifest Maintenance
 
@@ -984,7 +1077,7 @@ If the manifest is outdated, edit it directly or re-run `init-project.sh`.
 2. **NEVER** tag repos out of wave order (leaves → core → UI).
 3. **NEVER** skip go.mod sync between waves (Phases 4 and 5.5 are mandatory).
 4. **NEVER** push go.mod bumps directly to main — always use a PR.
-5. **NEVER** create a release without user confirmation of the version number.
+5. **NEVER** create a release without user confirmation of the per-repo version numbers.
 6. **NEVER** delete and re-create a tag without explicit user approval.
 7. **ALWAYS** verify the working tree is clean before AND after tagging.
 8. **NEVER** force-push tags. If a tag must be moved, delete + recreate with
@@ -993,3 +1086,5 @@ If the manifest is outdated, edit it directly or re-run `init-project.sh`.
 10. **ALWAYS** clean up orphaned draft releases after any tag redo.
 11. **ALWAYS** verify `gh auth status` before any GitHub operations.
 12. **ALWAYS** print the full summary at the end so the user can verify.
+13. **ALWAYS** include the reference repo (core) in every release — it is the
+    product umbrella even when it has no feat/fix commits of its own.

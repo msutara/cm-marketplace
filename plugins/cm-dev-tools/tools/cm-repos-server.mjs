@@ -206,7 +206,7 @@ function reply(result) {
 
 const server = new McpServer({
   name: "cm-repos",
-  version: "1.1.4",
+  version: "1.1.5",
 });
 
 // ── Tool 1: cm_repo_status ───────────────────────────────────────────────────
