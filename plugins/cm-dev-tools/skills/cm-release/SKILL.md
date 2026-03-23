@@ -24,6 +24,11 @@ modules first, then modules that import them — with `go.mod` sync between
 waves so that every repo's CI build resolves correct dependency versions.
 The reference repo (core) is always included as the product umbrella.
 
+> **Requirements:** Bash 4+ (for associative arrays). On macOS, the default
+> `/bin/bash` is 3.2 — install a newer version via Homebrew (`brew install bash`)
+> and invoke with that shell. Also requires: `jq`, `gh` (GitHub CLI), `git`,
+> `go`, `golangci-lint`, and `markdownlint-cli2`.
+
 ## Project Context
 
 Read project context from `.cm/project.json` if available. Discovery order:
