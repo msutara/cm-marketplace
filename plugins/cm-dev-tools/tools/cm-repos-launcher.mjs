@@ -45,7 +45,8 @@ function depsInstalled() {
 if (!depsInstalled()) {
   log("Dependencies not found — installing automatically...");
   const hasLockfile = existsSync(resolve(toolsDir, "package-lock.json"));
-  const cmd = hasLockfile ? "npm ci --omit=dev" : "npm install --omit=dev";
+  const flags = "--omit=dev --no-audit --no-fund";
+  const cmd = hasLockfile ? `npm ci ${flags}` : `npm install ${flags}`;
   try {
     execSync(cmd, {
       cwd: toolsDir,
