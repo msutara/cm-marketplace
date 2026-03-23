@@ -173,7 +173,7 @@ cm-marketplace/
 │       │   ├── sync-deps.sh            # Bump go.mod dependencies
 │       │   └── project-board.sh        # GitHub project board automation
 │       ├── tools/
-│       │   ├── package.json            # MCP server runtime deps (bundled with plugin)
+│       │   ├── package.json            # MCP server runtime deps (auto-installed on first run)
 │       │   ├── ensure-prerequisites.mjs # Preflight CLI tool checker
 │       │   ├── cm-repos-server.mjs     # MCP server (8 tools)
 │       │   └── cm-repos-launcher.mjs   # MCP bootstrap + auto-install launcher
