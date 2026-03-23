@@ -321,7 +321,9 @@ fi
 # Fetch tags first to ensure local clone reflects remote state.
 declare -A repo_version
 for n in "${included_repos[@]}"; do
-    git -C "$base/$n" fetch --tags --quiet 2>/dev/null || true
+    if ! git -C "$base/$n" fetch --tags --quiet 2>/dev/null; then
+        echo "❌ Failed to fetch tags for '$n'. Aborting to avoid stale tag info." >&2; exit 1
+    fi
     lastTag=$(git -C "$base/$n" describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
     # Validate tag is semver (vMAJOR.MINOR.PATCH)
     if ! echo "$lastTag" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
@@ -1003,7 +1005,7 @@ If a release is partially complete or incorrect:
        # Example: RELEASE_TAGS="cm-plugin-network=v0.4.5 config-manager-core=v0.4.6"
        #      or: RELEASE_TAG="v0.4.6" (single tag for all repos)
        if [ -n "${RELEASE_TAGS:-}" ]; then
-           expected=$(echo "$RELEASE_TAGS" | tr ' ' '\n' | grep "^${n}=" | cut -d= -f2)
+           expected=$(echo "$RELEASE_TAGS" | tr ' ' '\n' | awk -F= -v repo="$n" '$1 == repo { print $2; exit }')
            [ -z "$expected" ] && expected="${RELEASE_TAG:-}"
        else
            expected="${RELEASE_TAG:?Set RELEASE_TAG or RELEASE_TAGS (repo=tag pairs)}"
