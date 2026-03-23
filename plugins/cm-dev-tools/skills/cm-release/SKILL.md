@@ -115,10 +115,12 @@ GitHub account that has access to the CM repositories is active. The manifest's
 gh auth switch
 ```
 
-Verify access to the target repos:
+Verify access to the target repos (read owner from manifest):
 
 ```bash
-gh api "repos/$owner/$referenceRepo" --jq '.full_name' 2>/dev/null && echo "✅ Access OK" || echo "❌ No access"
+_owner="$(jq -r '.owner // empty' "$_cm")"
+_rref="$(jq -r '.reference_repo // .repos[0].name // empty' "$_cm")"
+gh api "repos/$_owner/$_rref" --jq '.full_name' 2>/dev/null && echo "✅ Access OK" || echo "❌ No access"
 ```
 
 Do **not** proceed until `gh auth status` shows the correct account.
