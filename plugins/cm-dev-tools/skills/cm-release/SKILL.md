@@ -85,9 +85,6 @@ For example, a `patch` bump might produce:
 The **product version** (used for the overall release label) is the reference
 repo's computed version, since core IS the Config Manager product.
 
-Optionally, the user may provide an explicit version override for a specific
-repo (e.g., `core=v1.0.0`), but the default flow is bump-type-driven.
-
 Per-repo version computation happens in Phase 2, after determining which repos
 are included in scope. Always confirm the computed versions with the user
 before proceeding.
@@ -270,8 +267,9 @@ Proceed with 3 repos? [y/N]
 Only included repos participate in Phases 3–9. Skipped repos keep their
 current tag.
 
-> ⚠️ If **no repos** are included (all chore-only), abort the release. A
-> release with zero tagged repos is not meaningful. Tell the user and stop.
+> ⚠️ If **no repos** have feat/fix changes AND `$referenceRepo` is unset (no
+> manifest), the release has no repos and no product umbrella. Abort and tell
+> the user. (In practice, core auto-include ensures at least one repo.)
 
 ### Derive wave arrays
 
@@ -289,7 +287,7 @@ included_repos=()  # ← populate from Phase 2 scope decisions
 # Its release notes describe ecosystem-wide changes even when its own code is unchanged.
 # This MUST run before the empty-scope check so that an all-chore release still produces
 # a core tag with ecosystem-wide notes.
-if ! printf '%s\n' "${included_repos[@]}" | grep -qx "$referenceRepo" 2>/dev/null; then
+if ! printf '%s\n' "${included_repos[@]}" | grep -Fqx "$referenceRepo" 2>/dev/null; then
     included_repos+=("$referenceRepo")
     echo "ℹ️  $referenceRepo auto-included as product umbrella (no own changes this cycle)"
 fi
@@ -311,6 +309,7 @@ for n in "${included_repos[@]}"; do
         major) repo_version[$n]="v$((major + 1)).0.0" ;;
         minor) repo_version[$n]="v${major}.$((minor + 1)).0" ;;
         patch) repo_version[$n]="v${major}.${minor}.$((patch + 1))" ;;
+        *) echo "❌ Invalid bump type: '$bump' (expected: major, minor, or patch)" >&2; exit 1 ;;
     esac
 done
 
