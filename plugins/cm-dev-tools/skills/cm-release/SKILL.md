@@ -243,7 +243,9 @@ Categorize each repo:
 - If the repo would skip a version number (e.g., v0.4.3 → v0.4.5) → flag for
   user decision
 
-Print a scope table and **confirm with the user** before proceeding:
+Print a scope table and **confirm with the user** before proceeding.
+The "Next Version" column is a **preview** based on the bump type; final
+per-repo versions are computed after confirmation in "Derive wave arrays":
 
 ```txt
 Release Scope (patch bump)
@@ -267,9 +269,11 @@ Proceed with 3 repos? [y/N]
 Only included repos participate in Phases 3–9. Skipped repos keep their
 current tag.
 
-> ⚠️ If **no repos** have feat/fix changes AND `$referenceRepo` is unset (no
-> manifest), the release has no repos and no product umbrella. Abort and tell
-> the user. (In practice, core auto-include ensures at least one repo.)
+> ⚠️ If **no repos** have feat/fix changes, the release has no scope and no
+> product umbrella. Because Phase 1 requires a manifest, `$referenceRepo`
+> should already be set from it; if it is unset, treat that as a configuration
+> error and abort, telling the user. (In practice, core auto-include ensures at
+> least one repo.)
 
 ### Derive wave arrays
 
@@ -302,6 +306,10 @@ fi
 declare -A repo_version
 for n in "${included_repos[@]}"; do
     lastTag=$(git -C "$base/$n" describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+    # Validate tag is semver (vMAJOR.MINOR.PATCH)
+    if ! echo "$lastTag" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+        echo "❌ Tag '$lastTag' in $n is not valid semver (expected vX.Y.Z)" >&2; exit 1
+    fi
     major=$(echo "$lastTag" | sed 's/^v//' | cut -d. -f1)
     minor=$(echo "$lastTag" | sed 's/^v//' | cut -d. -f2)
     patch=$(echo "$lastTag" | sed 's/^v//' | cut -d. -f3)
