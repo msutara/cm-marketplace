@@ -776,21 +776,29 @@ packages compiled into the core binary.
 ```bash
 _release_failed=false
 for n in "${included_repos[@]}"; do
-    run=$(gh run list \
-        --repo "$owner/$n" \
-        --workflow "release.yml" \
-        --limit 1 \
-        --json status,conclusion,databaseId)
-
-    dbId=$(echo "$run" | jq -r '.[0].databaseId // empty')
-    if [ -z "$dbId" ]; then
-        echo "❌ ${n}: no release workflow run found — tag may not have triggered it" >&2
+    tag_sha=$(git -C "$base/$n" rev-parse "$version" 2>/dev/null || true)
+    if [ -z "$tag_sha" ]; then
+        echo "❌ ${n}: unable to resolve commit for tag $version" >&2
         _release_failed=true
         continue
     fi
 
-    status=$(echo "$run" | jq -r '.[0].status')
-    conclusion=$(echo "$run" | jq -r '.[0].conclusion')
+    run=$(gh run list \
+        --repo "$owner/$n" \
+        --workflow "release.yml" \
+        --limit 20 \
+        --json status,conclusion,databaseId,headSha | \
+        jq --arg sha "$tag_sha" '[.[] | select(.headSha == $sha)][0]')
+
+    dbId=$(echo "$run" | jq -r '.databaseId // empty')
+    if [ -z "$dbId" ]; then
+        echo "❌ ${n}: no release workflow run found for tag $version ($tag_sha)" >&2
+        _release_failed=true
+        continue
+    fi
+
+    status=$(echo "$run" | jq -r '.status')
+    conclusion=$(echo "$run" | jq -r '.conclusion')
 
     if [[ "$status" == "in_progress" || "$status" == "queued" ]]; then
         gh run watch "$dbId" --repo "$owner/$n"

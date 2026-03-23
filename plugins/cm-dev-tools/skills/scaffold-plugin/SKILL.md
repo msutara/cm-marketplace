@@ -77,7 +77,7 @@ gh auth switch
 Verify access to the target repos:
 
 ```bash
-gh api repos/{OWNER}/cm-plugin-{name} --jq '.full_name' 2>/dev/null && echo "✅ Access OK" || echo "❌ No access"
+gh api repos/{OWNER}/{reference_repo} --jq '.full_name' 2>/dev/null && echo "✅ Access OK" || echo "❌ No access"
 ```
 
 Do **not** proceed until `gh auth status` shows the correct account.
@@ -173,7 +173,12 @@ else
   echo "❌ Cannot find core repo — set CM_REPO_BASE or ensure .cm/project.json exists." >&2
   exit 1
 fi
-_ver=$(git -C "$_core" describe --tags --abbrev=0)
+if ! _ver=$(git -C "$_core" describe --tags --abbrev=0 2>/dev/null) || [ -z "$_ver" ]; then
+  echo "❌ Core repo ($_core) has no tags; cannot resolve version automatically." >&2
+  echo "   Ensure tags are fetched ('git -C \"$_core\" fetch --tags')" >&2
+  echo "   or manually replace '${_ref} v0.0.0' with the desired version in go.mod." >&2
+  exit 1
+fi
 sed -i.bak "s|${_ref} v0.0.0|${_ref} $_ver|" go.mod && rm -f go.mod.bak
 ```
 
