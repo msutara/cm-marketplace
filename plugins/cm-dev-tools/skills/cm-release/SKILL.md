@@ -294,6 +294,9 @@ included_repos=()  # ← populate from Phase 2 scope decisions
 # Its release notes describe ecosystem-wide changes even when its own code is unchanged.
 # This MUST run before the empty-scope check so that an all-chore release still produces
 # a core tag with ecosystem-wide notes.
+if [ -z "${referenceRepo:-}" ]; then
+    echo "❌ \$referenceRepo is unset — manifest may be misconfigured." >&2; exit 1
+fi
 if ! printf '%s\n' "${included_repos[@]}" | grep -Fqx "$referenceRepo" 2>/dev/null; then
     included_repos+=("$referenceRepo")
     echo "ℹ️  $referenceRepo auto-included as product umbrella (no own changes this cycle)"
@@ -958,24 +961,62 @@ fi
 
 If a release is partially complete or incorrect:
 
-1. **Assess damage** — list which repos have the tag. This snippet must work
-   in a fresh session, so it re-reads the manifest and derives tags from the
-   repos array rather than relying on shell variables from the original run:
+1. **Assess damage** — list which repos have the tag from the failed release.
+   The operator must provide the intended release tags (e.g., `v0.4.6`) so the
+   snippet can check for those specific tags, not just the latest. This snippet
+   is fresh-session safe and uses the same manifest discovery as the main
+   tooling:
 
    ```bash
    # Re-read manifest for recovery (fresh session safe)
-   _cm="$(find . -maxdepth 2 -name project.json -print -quit)"
-   base="$(cd "$(dirname "$_cm")/.." && pwd)"
+   # Uses same discovery order: $CM_REPO_BASE → walk up from cwd → $HOME/repo
+   base=""
+   if [[ -n "${CM_REPO_BASE:-}" && -f "$CM_REPO_BASE/.cm/project.json" ]]; then
+       base="$CM_REPO_BASE"
+   else
+       dir="$PWD"
+       while [[ "$dir" != "/" ]]; do
+           if [[ -f "$dir/.cm/project.json" ]]; then
+               base="$dir"
+               break
+           fi
+           dir="$(dirname "$dir")"
+       done
+   fi
+   if [[ -z "$base" && -d "$HOME/repo" && -f "$HOME/repo/.cm/project.json" ]]; then
+       base="$HOME/repo"
+   fi
+   if [[ -z "$base" ]]; then
+       echo "❌ Unable to locate .cm/project.json" >&2; exit 1
+   fi
+
+   _cm="$base/.cm/project.json"
    owner=$(jq -r '.owner' "$_cm")
+   referenceRepo=$(jq -r '.reference_repo' "$_cm")
    all_repos=($(jq -r '.repos[].name' "$_cm"))
 
+   # Provide the bump type used in the failed release (patch/minor/major).
+   : "${RELEASE_BUMP:?Set RELEASE_BUMP to the bump type used (patch, minor, or major)}"
+
    for n in "${all_repos[@]}"; do
-       lastTag=$(git -C "$base/$n" describe --tags --abbrev=0 2>/dev/null || echo "none")
-       tagged=$(git -C "$base/$n" ls-remote --tags origin | grep "$lastTag" || true)
+       # Use REMOTE tags only — local tags from the failed release would corrupt the arithmetic.
+       lastTag=$(git -C "$base/$n" ls-remote --tags --sort=-v:refname origin 'refs/tags/v*' \
+           | grep -v '\^{}' | head -1 | sed 's|.*refs/tags/||' || echo "v0.0.0")
+       if [ -z "$lastTag" ]; then lastTag="v0.0.0"; fi
+       # Derive what the release WOULD have tagged this repo
+       major=$(echo "$lastTag" | sed 's/^v//' | cut -d. -f1)
+       minor=$(echo "$lastTag" | sed 's/^v//' | cut -d. -f2)
+       patch=$(echo "$lastTag" | sed 's/^v//' | cut -d. -f3)
+       case "$RELEASE_BUMP" in
+           major) expected="v$((major + 1)).0.0" ;;
+           minor) expected="v${major}.$((minor + 1)).0" ;;
+           patch) expected="v${major}.${minor}.$((patch + 1))" ;;
+       esac
+       tagged=$(git -C "$base/$n" ls-remote --tags origin "refs/tags/$expected" 2>/dev/null || true)
        if [ -n "$tagged" ]; then
-           echo "🏷️  $n: tagged ($lastTag)"
+           echo "🏷️  $n: tagged ($expected, from $lastTag)"
        else
-           echo "   $n: not tagged"
+           echo "   $n: not tagged with $expected (last: $lastTag)"
        fi
    done
    ```
@@ -995,7 +1036,7 @@ If a release is partially complete or incorrect:
 > it with different content **will cause checksum mismatches**. Verify with:
 >
 > ```bash
-> curl -s "https://proxy.golang.org/github.com/$owner/$n/@v/${repo_version[$n]}.info"
+> curl -s "https://proxy.golang.org/github.com/$owner/$n/@v/<expected-tag>.info"
 > ```
 >
 > If the proxy has cached the old tag, you must use a different version number
