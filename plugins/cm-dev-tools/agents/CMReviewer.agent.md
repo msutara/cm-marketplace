@@ -1,5 +1,5 @@
 ---
-description: 'Multi-perspective code review agent for Config Manager Go repos. Orchestrates 11-agent fleet reviews or acts as a single specialized reviewer.'
+description: 'Multi-perspective code review agent for Config Manager Go repos. Orchestrates 5–11 agent fleet reviews or acts as a single specialized reviewer.'
 ---
 
 # CM Code Reviewer
@@ -41,7 +41,7 @@ All repos are sibling directories under the manifest's parent directory.
 
 ## Fleet Review Configuration
 
-**11 agents, 11 different models for maximum perspective diversity:**
+**5–11 agents with diverse models for maximum perspective coverage (minimum 5 for routine, full 11 for major changes):**
 
 ### Group A — General
 

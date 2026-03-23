@@ -1,9 +1,11 @@
 ---
 name: cm-fleet-review
 description: >
-  11-agent multi-perspective code review fleet for the Config Manager project.
+  Multi-perspective code review fleet for the Config Manager project.
   Launches parallel review agents with diverse AI models, each with a specific
-  role and mandatory checklist. This is the core quality gate for cm.
+  role and mandatory checklist. Supports minimum fleet (5 agents) for routine
+  reviews and full fleet (11 agents) for major changes. This is the core
+  quality gate for cm.
   USE FOR: fleet review, run fleet, multi-model review, 11 agent review,
   cm review, code review fleet, review changes, run code review,
   multi-perspective review, launch fleet.
@@ -11,9 +13,20 @@ description: >
 
 # CM Fleet Review
 
-Orchestrates an 11-agent parallel code review using diverse AI models, each with
-a specific role and mandatory checklist. This is THE core quality gate for the
-Config Manager project.
+Orchestrates a multi-perspective parallel code review using diverse AI models,
+each with a specific role and mandatory checklist. This is THE core quality gate
+for the Config Manager project.
+
+### Fleet Sizes
+
+| Mode | Agents | When to Use |
+| --- | --- | --- |
+| **Minimum fleet** | 5 (Group A) | Routine PRs, small fixes, docs changes |
+| **Full fleet** | 11 (Groups A + B + C) | Major features, security work, pre-release, structural changes |
+
+The global instruction says "at minimum 4–5 parallel review agents." Running 11
+agents on every small fix is expensive and slow. Default to minimum fleet unless
+the change is significant. Ask the user if unsure.
 
 Every agent reviews the **full changed files** (not just diffs) to catch
 inconsistencies, stale comments, and cross-file issues. Model diversity across
@@ -166,8 +179,9 @@ in its assigned checklist. Do not skip items.
   against real-world values.
 □ CI workflow safety: every cd in CI must be in a subshell or use || exit 1 to
   propagate failures. Grep exit code 2 must not be silently swallowed.
-□ Action versions: actions/checkout, setup-go, markdownlint-cli2-action — must
-  be consistent across ci.yml, skills, and scaffold templates.
+□ Action versions: actions/checkout@v6, actions/setup-go@v6,
+  markdownlint-cli2-action@v22, golangci-lint-action@v9 — must be consistent
+  across ci.yml, release.yml, skills, and scaffold templates.
 □ Untrimmed user input: EVERY read -rp value must be trimmed before validation.
   Whitespace-only input must be treated as empty.
 □ Error message vs regex mismatch: if validation uses ^[A-Za-z0-9]..., the
@@ -249,16 +263,21 @@ Ask the user which mode to use if unclear. Default to first iteration.
 
 ### Step 3 — Launch agents
 
-Launch ALL 11 agents **in parallel** using the `task` tool with
-`mode: "background"`. Each agent uses its assigned model via the `model`
-parameter.
+Launch ALL agents **in parallel** using the `task` tool with
+`mode: "background"`. For minimum fleet, launch agents 1–5 only. For full
+fleet, launch all 11.
+
+Each agent uses its assigned model via the `model` parameter.
 
 ```text
+## Group A — General Perspectives (always launched)
 Agent  1: task(agent_type="code-review", model="claude-opus-4.6",      prompt=<template with Architect role>)
 Agent  2: task(agent_type="code-review", model="gpt-5.1-codex",        prompt=<template with Correctness role>)
 Agent  3: task(agent_type="code-review", model="gpt-5.3-codex",        prompt=<template with Security Overview role>)
 Agent  4: task(agent_type="code-review", model="claude-sonnet-4.5",    prompt=<template with Test Coverage role>)
 Agent  5: task(agent_type="code-review", model="gemini-3-pro-preview", prompt=<template with Operational role>)
+
+## Group B+C — Specialized (full fleet only)
 Agent  6: task(agent_type="code-review", model="claude-sonnet-4.6",    prompt=<template with Deep Security role>)
 Agent  7: task(agent_type="code-review", model="gpt-5.2-codex",        prompt=<template with Unicode role>)
 Agent  8: task(agent_type="code-review", model="gpt-5.1-codex-max",    prompt=<template with Test Quality role>)
@@ -483,3 +502,16 @@ agents and save tokens:
 
 When a skip rule applies, note it in the summary so the user knows why an
 agent was not launched for a particular file.
+
+## Windows / PowerShell Notes
+
+When running on Windows (Git Bash via PowerShell):
+
+- **Parallel `golangci-lint` conflicts**: `golangci-lint` uses a file lock. If
+  two repos are linted simultaneously (e.g., during Phase 1 pre-flight across
+  multiple repos), one may fail with "parallel golangci-lint is running."
+  Serialize lint runs or use separate `GOLANGCI_LINT_CACHE` directories.
+
+- **`--body` escaping**: Complex markdown with backticks, quotes, and newlines
+  breaks in PowerShell. Always use `--body-file /tmp/review-body.md` instead
+  of inline `--body` when creating issues or PRs from fleet results.

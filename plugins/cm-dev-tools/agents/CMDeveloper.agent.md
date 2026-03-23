@@ -175,7 +175,7 @@ fi
 1. **Build** — `go build ./...`
 2. **Test** — `go test ./...`
 3. **Lint** — `golangci-lint run`
-4. **Fleet review** — 11 parallel agents (diverse models) with mandatory checklists
+4. **Fleet review** — 5–11 parallel agents (diverse models) with mandatory checklists
 5. **Fix findings** — genuine issues only, dismiss false positives
 6. **Repeat 1–5** until fleet review is clean
 7. **Stage and show diff** — wait for user review

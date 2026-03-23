@@ -2,9 +2,9 @@
 name: cm-parity-check
 description: >
   Verify functional, security, test, and documentation parity between
-  the UI repos in .cm/project.json (repos whose role contains "TUI" or
-  "web UI" per the example manifest — roles are user-defined free-form
-  strings matched by substring). Reports gaps without making changes.
+  the UI repos in .cm/project.json (repos whose role is exactly "tui" or
+  "web" — case-insensitive, anchored regex via jq ascii_downcase).
+  Reports gaps without making changes.
   USE FOR: parity check, check parity, tui web sync, compare tui web,
   parity audit, ui parity, check ui parity, verify parity, parity report.
 ---
@@ -15,9 +15,9 @@ description: >
 
 The Config Manager project enforces a **permanent parity rule**:
 
-> The UI repos in `.cm/project.json` (those whose `.role` contains "TUI" or
-> "web UI" — roles are user-defined strings matched by substring) MUST be kept
-> functionally and test-wise identical.
+> The UI repos in `.cm/project.json` (those whose `.role` is exactly "tui" or
+> "web" — case-insensitive, anchored match) MUST be kept functionally and
+> test-wise identical.
 >
 > 1. Every feature implemented in one UI must exist in the other.
 > 2. Every security pattern (sanitization, body limits, token masking, input
@@ -43,7 +43,7 @@ _cm="${CM_REPO_BASE:+$CM_REPO_BASE/.cm/project.json}"
 [ -f "$_cm" ] || _cm="../.cm/project.json"            # parent dir
 [ -f "$_cm" ] || _cm="$HOME/repo/.cm/project.json"   # fallback
 if [ -f "$_cm" ]; then
-  jq '.repos[] | select((.role // "") | (contains("TUI") or contains("web UI")))' "$_cm"
+  jq '.repos[] | select((.role // "") | ascii_downcase | test("^(tui|web)$"))' "$_cm"
 else
   echo "No manifest found — ask the user for owner, repo names, and other context."
 fi
@@ -87,15 +87,20 @@ Mark each row:
 
 ### Step 2 — Inventory Security Patterns
 
-Compare security implementations across both codebases.
+Compare security implementations across both codebases. **Discover** the
+actual function names and locations dynamically — do NOT rely on hardcoded
+references (functions get renamed/moved between releases).
 
-| Pattern | TUI Location | Web Location | What to Check |
-| --- | --- | --- | --- |
-| Input sanitization (C0 + C1 control chars) | `menu.go:sanitizeText()` | `web.go:sanitizeForDisplay()` | Implementation logic matches |
-| Body size limits | `apiclient.go:LimitReader` | `routes.go:http.MaxBytesReader` | Limit values are identical |
-| Token masking in logs | `apiclient.go` | `web.go` | Masking pattern is identical |
-| Path traversal prevention | `apiclient.go:cleanPluginPath` | `routes.go:cleanPluginPath` | Implementation logic matches |
-| Error message sanitization | `menu.go:sanitizeBody()` | `routes.go` | Coverage is identical |
+For each pattern below, `grep -rnE` both repos to locate the implementation,
+then diff the logic:
+
+| Pattern | How to Find | What to Check |
+| --- | --- | --- |
+| Input sanitization (C0 + C1 control chars) | `grep -rnE --include='*.go' 'sanitize|Sanitize' .` | Implementation logic matches across repos |
+| Body size limits | `grep -rnE --include='*.go' 'LimitReader|MaxBytesReader' .` | Limit values are identical |
+| Token masking in logs | `grep -rnE --include='*.go' 'mask|Mask|token.*log|Token.*Log' .` | Masking pattern is identical |
+| Path traversal prevention | `grep -rnE --include='*.go' 'cleanPlugin|filepath.Clean|path.Clean' .` | Implementation logic matches |
+| Error message sanitization | `grep -rnE --include='*.go' 'sanitize.*[Bb]ody|sanitize.*[Ee]rror' .` | Coverage is identical |
 
 For each pattern, read the actual implementation in both repos and diff the
 logic. Flag any divergence.
@@ -182,7 +187,10 @@ Ask the user whether to create GitHub issues for each gap. If approved, run:
 
 ```bash
 # Use the web repo name discovered from the manifest query in Step 1
-gh issue create --repo {OWNER}/{web_repo_name} --title "Parity: Add {feature}" --body "{details}"
+_issue_body="$(mktemp)"
+echo "{details}" > "$_issue_body"
+gh issue create --repo {OWNER}/{web_repo_name} --title "Parity: Add {feature}" --body-file "$_issue_body"
+rm -f "$_issue_body"
 ```
 
 (Replace `{web_repo_name}` with the actual repo name from the manifest `repos[]` query above)

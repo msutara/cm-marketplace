@@ -1,5 +1,69 @@
 # CM Marketplace — Release History
 
+## [1.1.3] — 2026-03-22
+
+### Changed
+
+- **scaffold-plugin** skill rewrite addressing 9 gaps (2 CRITICAL):
+  - S1: `Version()` now uses `var version = "dev"` + ldflags pattern instead of
+    hardcoded `"0.1.0"`; test asserts `!= ""` instead of `!= "0.1.0"`
+  - S2: Release workflow replaced — plugins are library packages, no standalone
+    binary or `.deb`; uses `softprops/action-gh-release@v2` for lightweight
+    tag-only releases
+  - S3: `setup-go@v5` → `@v6` in CI and release workflows
+  - S4: Added go.work registration step (Step 5.6)
+  - S5: Added core Makefile/release.yml ldflags update step (Step 5.5)
+  - S6: `go get @latest` → `@v0.1.0` (pinned version)
+  - S7: CONTRIBUTING.md reads repo list from manifest instead of hardcoding
+  - S8: `dep_order` inserts before UI repos instead of appending to end
+  - S9: Added branch protection setup step (Step 10)
+  - Updated verification checklist with all new steps
+  - Removed nfpm.yaml template (plugins don't produce `.deb`)
+
+- **cm-release** skill rewrite addressing 12 gaps (1 CRITICAL):
+  - Multi-wave tagging (leaves → go.mod sync → core → go.mod sync → UI)
+    replaces broken single-pass linear tagging
+  - Phase 0 (auth check) added
+  - Phase 2 (release scope) with selective tagging — skip chore-only repos
+  - Phase 4 (go.mod sync) as mandatory step between tagging waves, using
+    PR flow instead of direct push to main
+  - Go module proxy wait with retry loop
+  - Rich release notes with repo descriptions, What's New paragraphs,
+    categorized changelogs, credits, and downloads table
+  - Annotated tags with multi-line messages
+  - ldflags verification step
+  - Release recovery procedure for partially-botched releases
+  - Orphan draft release cleanup after tag/release redo
+  - 12 safety rules (up from 8)
+
+- **cm-fleet-review** fixes (2 LOW gaps):
+  - F1: Clarified minimum fleet (5 agents, Group A) vs full fleet (11 agents)
+    with guidance on when to use each; description updated from "11-agent" to
+    "5–11 agent"
+  - F2: Added Windows/PowerShell operational notes (parallel golangci-lint
+    conflicts, `--body-file` workaround)
+
+- **cm-pr-lifecycle** fixes (3 LOW gaps):
+  - P1: Added `gh auth status` check before PR creation (Phase 7)
+  - P2: Changed `--body` to `--body-file` to avoid Windows/PowerShell escaping
+  - P3: Added `GOWORK=off` to Phase 1 build/test for CI-realistic validation
+
+- **cm-parity-check** fix (1 MEDIUM gap):
+  - PC1: Replaced hardcoded `file.go:function()` references with dynamic
+    `grep -rn` discovery patterns — prevents stale refs when code is refactored
+
+- **cm-docs-sync** fix (1 MEDIUM gap + cross-cutting X1):
+  - D1/X1: Added Step 5 "Skill Template Drift Detection" — compares
+    version-pinned references in skill templates (setup-go@, golangci-lint@,
+    etc.) against actual CI configs to catch skill maintenance drift
+
+- **Documentation synced**: skills README, plugin README, root README,
+  CMReviewer.agent.md all updated to match new skill descriptions
+
+- **Metadata**: version bumped to 1.1.3 across package.json, package-lock.json,
+  marketplace.json, and plugin.json; plugin.json `agents` field changed from
+  directory path to explicit file array
+
 ## [1.1.2] — 2026-03-22
 
 ### Fixed
