@@ -269,11 +269,14 @@ Proceed with 3 repos? [y/N]
 Only included repos participate in Phases 3–9. Skipped repos keep their
 current tag.
 
-> ⚠️ If **no repos** have feat/fix changes, the release has no scope and no
-> product umbrella. Because Phase 1 requires a manifest, `$referenceRepo`
-> should already be set from it; if it is unset, treat that as a configuration
-> error and abort, telling the user. (In practice, core auto-include ensures at
-> least one repo.)
+> ⚠️ If **no repos** (other than the auto-included `config-manager-core`)
+> have feat/fix changes, the release scope is effectively **core-only**. The
+> workflow should either (a) proceed with a core-only release after explicit
+> user confirmation, or (b) allow the user to abort if they do not want a
+> scope-less product release. If, despite Phase 1 requiring a manifest,
+> `$referenceRepo` is unset, treat that as a configuration error and abort with
+> a clear message — this should not happen in normal runs because core
+> auto-include ensures at least one repo.
 
 ### Derive wave arrays
 
@@ -705,16 +708,19 @@ https://github.com/{OWNER}/cm-plugin-network/compare/v0.4.4...v0.4.5
 
 ### Reference repo downloads table
 
-For the reference repo, append a downloads section:
+For the reference repo, append a downloads section. `{VERSION}` is the version
+**without** the leading `v` (e.g., `0.4.6`). The artifact prefix matches the
+binary name produced by the reference repo's release workflow
+(`config-manager`):
 
 ```markdown
 ### Downloads
 
 | Architecture | Package |
 | --- | --- |
-| ARM64 (Pi 4/5) | `cm_{VERSION}_arm64.deb` |
-| ARMv7 (Pi 3/Zero 2) | `cm_{VERSION}_armhf.deb` |
-| AMD64 | `cm_{VERSION}_amd64.deb` |
+| ARM64 (Pi 4/5) | `config-manager_{VERSION}_arm64.deb` |
+| ARMv7 (Pi 3/Zero 2) | `config-manager_{VERSION}_armhf.deb` |
+| AMD64 | `config-manager_{VERSION}_amd64.deb` |
 ```
 
 ### Write notes to files
@@ -952,23 +958,32 @@ fi
 
 If a release is partially complete or incorrect:
 
-1. **Assess damage** — list which repos have the tag:
+1. **Assess damage** — list which repos have the tag. This snippet must work
+   in a fresh session, so it re-reads the manifest and derives tags from the
+   repos array rather than relying on shell variables from the original run:
 
    ```bash
-   for n in "${included_repos[@]}"; do
-       tagged=$(git -C "$base/$n" ls-remote --tags origin | grep "${repo_version[$n]}" || true)
+   # Re-read manifest for recovery (fresh session safe)
+   _cm="$(find . -maxdepth 2 -name project.json -print -quit)"
+   base="$(cd "$(dirname "$_cm")/.." && pwd)"
+   owner=$(jq -r '.owner' "$_cm")
+   all_repos=($(jq -r '.repos[].name' "$_cm"))
+
+   for n in "${all_repos[@]}"; do
+       lastTag=$(git -C "$base/$n" describe --tags --abbrev=0 2>/dev/null || echo "none")
+       tagged=$(git -C "$base/$n" ls-remote --tags origin | grep "$lastTag" || true)
        if [ -n "$tagged" ]; then
-           echo "🏷️  $n: tagged (${repo_version[$n]})"
+           echo "🏷️  $n: tagged ($lastTag)"
        else
            echo "   $n: not tagged"
        fi
    done
    ```
 
-2. **For each repo that needs fixing**:
-   - Delete the GitHub release: `gh release delete "${repo_version[$n]}" --repo "$owner/$n" --yes`
-   - Delete remote tag: `git push origin --delete "${repo_version[$n]}"`
-   - Delete local tag: `git tag -d "${repo_version[$n]}"`
+2. **For each repo that needs fixing** (substitute the actual tag from step 1):
+   - Delete the GitHub release: `gh release delete "<tag>" --repo "$owner/$n" --yes`
+   - Delete remote tag: `git push origin --delete "<tag>"`
+   - Delete local tag: `git tag -d "<tag>"`
 
 3. **Clean up orphaned drafts** (see Post-redo orphan cleanup above).
 
