@@ -1,5 +1,21 @@
 # CM Marketplace — Release History
 
+## [1.1.4] — 2026-03-23
+
+### Fixed
+
+- **MCP server fails to load in installed plugin context** — two compounding bugs:
+  - Path resolution (`resolve(toolsDir, "..", "..", "..")`) assumed source repo
+    layout (4 segments) but installed layout has only 3 segments, resolving to
+    `installed-plugins/` instead of `cm-marketplace/`
+  - No `package.json` or `node_modules/` in installed location — the plugin
+    installer copies only the plugin subdirectory, not the parent repo's deps
+- **Fix**: MCP runtime deps (`@modelcontextprotocol/sdk`, `zod`) now live in
+  `tools/package.json` alongside the launcher; `createRequire` anchored at
+  `toolsDir`; auto-installs deps on first run if `node_modules/` is missing
+- Removed dead `dependencies` from root `package.json` (moved to `tools/`)
+- Bumped MCP server version from 1.1.0 to 1.1.4
+
 ## [1.1.3] — 2026-03-22
 
 ### Changed

@@ -173,9 +173,10 @@ cm-marketplace/
 │       │   ├── sync-deps.sh            # Bump go.mod dependencies
 │       │   └── project-board.sh        # GitHub project board automation
 │       ├── tools/
+│       │   ├── package.json            # MCP server runtime deps (bundled with plugin)
 │       │   ├── ensure-prerequisites.mjs # Preflight CLI tool checker
 │       │   ├── cm-repos-server.mjs     # MCP server (8 tools)
-│       │   └── cm-repos-launcher.mjs   # MCP bootstrap launcher
+│       │   └── cm-repos-launcher.mjs   # MCP bootstrap + auto-install launcher
 │       └── .mcp.json                   # MCP server auto-registration
 ├── docs/
 │   └── project.example.json           # Template for project manifest
@@ -183,7 +184,7 @@ cm-marketplace/
 ├── README.md                         # This file
 ├── RELEASES.md                       # Version history
 ├── CONTRIBUTING.md                   # How to add plugins/skills
-├── package.json                      # Dependencies (MCP SDK, Zod, markdownlint, Biome)
+├── package.json                      # Dev dependencies (markdownlint, Biome)
 ├── package-lock.json                 # Locked dependency versions
 ├── .editorconfig                     # Editor formatting rules
 ├── .gitattributes                    # LF enforcement for *.sh

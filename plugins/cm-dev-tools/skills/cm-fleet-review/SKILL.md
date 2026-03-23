@@ -17,7 +17,7 @@ Orchestrates a multi-perspective parallel code review using diverse AI models,
 each with a specific role and mandatory checklist. This is THE core quality gate
 for the Config Manager project.
 
-### Fleet Sizes
+## Fleet Sizes
 
 | Mode | Agents | When to Use |
 | --- | --- | --- |
