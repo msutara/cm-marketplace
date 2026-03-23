@@ -61,16 +61,23 @@ Derive from these:
 
 ### Authentication check
 
-Verify the correct GitHub account (the one that owns the CM repos) is active:
+Verify the correct GitHub account (the one with access to the CM repos) is active:
 
 ```bash
 gh auth status
 ```
 
-If the wrong account is active, switch:
+If the wrong account is active, switch interactively (`.owner` may be an org,
+so do not pass it to `--user`):
 
 ```bash
-gh auth switch --user {OWNER}
+gh auth switch
+```
+
+Verify access to the target repos:
+
+```bash
+gh api repos/{OWNER}/cm-plugin-{name} --jq '.full_name' 2>/dev/null && echo "✅ Access OK" || echo "❌ No access"
 ```
 
 Do **not** proceed until `gh auth status` shows the correct account.

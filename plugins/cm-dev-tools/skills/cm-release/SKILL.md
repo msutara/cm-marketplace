@@ -108,11 +108,17 @@ gh auth status
 ```
 
 In multi-account setups (e.g., EMU work account + personal account), ensure the
-GitHub account that owns the CM repositories (i.e., matches the manifest's
-`.owner` field) is active. If not:
+GitHub account that has access to the CM repositories is active. The manifest's
+`.owner` may be an org, so do not pass it to `--user`. Switch interactively:
 
 ```bash
-gh auth switch --user "$(jq -r '.owner' "$_cm")"
+gh auth switch
+```
+
+Verify access to the target repos:
+
+```bash
+gh api "repos/$owner/$referenceRepo" --jq '.full_name' 2>/dev/null && echo "✅ Access OK" || echo "❌ No access"
 ```
 
 Do **not** proceed until `gh auth status` shows the correct account.
