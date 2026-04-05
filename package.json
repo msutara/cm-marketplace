@@ -14,7 +14,7 @@
     "lint:all": "npm run lint && npm run lint:js"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.4.8",
+    "@biomejs/biome": "2.4.10",
     "markdownlint-cli2": "0.22.0"
   }
 }
